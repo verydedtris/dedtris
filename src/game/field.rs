@@ -1,28 +1,52 @@
+use sdl2::pixels::Color;
 use sdl2::rect::Rect;
-
-use super::super::component::*;
 
 pub struct Field
 {
-	pub coords: Rect,
+	pub rect: Rect,
+
+	pub blocks: Vec<(i32, i32)>,
+	pub colors: Vec<Color>,
+
+	pub width: u32,
+	pub height: u32,
+	pub block_size: u32,
 }
 
-impl Component for Field
+impl Field
 {
-	fn init() -> Self
+	pub fn init(pos: (i32, i32), block_size: u32) -> Self
 	{
+		const W: u32 = 10;
+		const H: u32 = 20;
+
+		let width = W * block_size;
+		let height = H * block_size;
+
 		Field {
-			coords: 
+			rect: Rect::new(
+				pos.0,
+                pos.1,
+				width,
+				height,
+			),
+			blocks: vec![],
+			colors: vec![],
+			width: W,
+			height: H,
+			block_size,
 		}
 	}
 
-	fn draw(&self, canvas: &mut sdl2::render::WindowCanvas)
+	pub fn add_pieces(&mut self, blocks: &[(i32, i32)], color: Color)
 	{
-		todo!()
-	}
+		self.colors.resize(self.colors.len() + blocks.len(), color);
 
-	fn handle_event(&mut self, event: &sdl2::event::Event)
-	{
-		todo!()
+		self.blocks.reserve(blocks.len());
+		for i in blocks {
+			self.blocks.push(*i);
+		}
+
+        self.blocks.sort_unstable();
 	}
 }

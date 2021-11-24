@@ -10,13 +10,12 @@ use super::component::*;
 mod pieces;
 use pieces::*;
 
+mod field;
+use field::*;
+
 pub struct Data
 {
-	width: u32,
-	height: u32,
-
-	field: Rect,
-
+	field: Field,
 	pieces: Pieces,
 }
 
@@ -25,19 +24,19 @@ impl Data
 	fn draw_field(&self, canvas: &mut WindowCanvas)
 	{
 		canvas.set_draw_color(Color::RGB(0, 0, 0));
-		canvas.fill_rect(self.field).unwrap();
+		canvas.fill_rect(self.field.rect).unwrap();
 	}
 
 	fn draw_pieces(&self, canvas: &mut WindowCanvas)
 	{
-		for (b, c) in self.pieces.blocks.iter().zip(self.pieces.colors.iter()) {
+		for (b, c) in self.field.blocks.iter().zip(self.field.colors.iter()) {
 			canvas.set_draw_color(*c);
 
 			let rect = Rect::new(
-				self.field.x + b.0 * self.pieces.block_size as i32,
-				self.field.y + b.1 * self.pieces.block_size as i32,
-				self.pieces.block_size,
-				self.pieces.block_size,
+				self.field.rect.x + b.0 * self.field.block_size as i32,
+				self.field.rect.y + b.1 * self.field.block_size as i32,
+				self.field.block_size,
+				self.field.block_size,
 			);
 
 			canvas.fill_rect(rect).unwrap();
@@ -49,27 +48,14 @@ impl Component for Data
 {
 	fn init(window: &Window) -> Self
 	{
-		const W: u32 = 10;
-		const H: u32 = 20;
 		const THESHOLD: u32 = 20;
 
 		let win_size = window.size();
-
 		let block = (win_size.1 - THESHOLD) / 20;
 
-		let width = W * block;
-		let height = H * block;
-
 		Data {
-			width: W,
-			height: H,
-			field: Rect::new(
-				((win_size.0 - width) / 2) as i32,
-				((win_size.1 - height) / 2) as i32,
-				width,
-				height,
-			),
-			pieces: Pieces::init(block),
+			pieces: Pieces::init(),
+            field: Field::init((0, 0), block),
 		}
 	}
 
@@ -80,7 +66,7 @@ impl Component for Data
 				keycode: Some(Keycode::O),
 				..
 			} => {
-				self.pieces.add_pieces(&[(5, 5)], Color::GREEN);
+				self.field.add_pieces(&self.pieces.spawn_piece(0), Color::GREEN);
 				println!("Added piece");
 			}
 			_ => {}

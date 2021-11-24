@@ -1,28 +1,19 @@
 use bitmaps::Bitmap;
 use sdl2::pixels::Color;
-use sdl2::render::WindowCanvas;
 
 type Template = (Bitmap<64>, Color);
 
 pub struct Pieces
 {
 	pub templates: Vec<Template>,
-
-	pub blocks: Vec<(i32, i32)>,
-	pub colors: Vec<Color>,
-
 	pub template_size: usize,
-	pub block_size: u32,
 }
 
 impl Pieces
 {
-	pub fn init(block_size: u32) -> Self
+	pub fn init() -> Self
 	{
 		Pieces {
-			block_size,
-			blocks: vec![],
-			colors: vec![],
 			template_size: 4,
 			templates: vec![
 				// Load defaults
@@ -40,18 +31,6 @@ impl Pieces
 				(Bitmap::<64>::from_value(0b0100010001000100u64), Color::CYAN),
 			],
 		}
-	}
-
-	pub fn add_pieces(&mut self, blocks: &[(i32, i32)], color: Color)
-	{
-		self.colors.resize(self.colors.len() + blocks.len(), color);
-
-		self.blocks.reserve(blocks.len());
-		for i in blocks {
-			self.blocks.push(*i);
-		}
-
-        self.blocks.sort_unstable();
 	}
 
 	pub fn spawn_piece(&self, temp_idx: usize) -> Vec<(i32, i32)>
