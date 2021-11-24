@@ -17,6 +17,8 @@ pub struct Data
 {
 	field: Field,
 	pieces: Pieces,
+
+	piece: Piece,
 }
 
 impl Data
@@ -42,6 +44,22 @@ impl Data
 			canvas.fill_rect(rect).unwrap();
 		}
 	}
+
+	fn draw_piece(&self, canvas: &mut WindowCanvas)
+	{
+		for (b, c) in self.piece.blocks.iter().zip(self.piece.color.iter()) {
+			canvas.set_draw_color(*c);
+
+			let rect = Rect::new(
+				self.field.rect.x + b.0 * self.field.block_size as i32,
+				self.field.rect.y + b.1 * self.field.block_size as i32,
+				self.field.block_size,
+				self.field.block_size,
+			);
+
+			canvas.fill_rect(rect).unwrap();
+		}
+	}
 }
 
 impl Component for Data
@@ -54,8 +72,9 @@ impl Component for Data
 		let block = (win_size.1 - THESHOLD) / 20;
 
 		Data {
+			field: Field::init((0, 0), block),
 			pieces: Pieces::init(),
-            field: Field::init((0, 0), block),
+			piece: Piece::init(),
 		}
 	}
 
@@ -63,12 +82,34 @@ impl Component for Data
 	{
 		match event {
 			Event::KeyDown {
-				keycode: Some(Keycode::O),
+				keycode: Some(Keycode::N),
 				..
 			} => {
-				self.field.add_pieces(&self.pieces.spawn_piece(0), Color::GREEN);
+				self.piece = Piece::new(self.pieces.spawn_piece(0), vec![Color::GREEN; 4]);
 				println!("Added piece");
 			}
+			Event::KeyDown {
+				keycode: Some(Keycode::Left),
+				..
+			} => {
+				self.piece.move_piece(&self.field, Direction::LEFT);
+				println!("Moved to left");
+			}
+			Event::KeyDown {
+				keycode: Some(Keycode::Right),
+				..
+			} => {
+				self.piece.move_piece(&self.field, Direction::RIGHT);
+				println!("Moved to right");
+			}
+			Event::KeyDown {
+				keycode: Some(Keycode::Down),
+				..
+			} => {
+				self.piece.move_piece(&self.field, Direction::DOWN);
+				println!("Moved to bottom");
+			}
+
 			_ => {}
 		}
 	}
@@ -77,5 +118,6 @@ impl Component for Data
 	{
 		self.draw_field(canvas);
 		self.draw_pieces(canvas);
+		self.draw_piece(canvas);
 	}
 }
