@@ -7,6 +7,6 @@ edition = "2018"
 
 [dependencies]
 sdl2 = "0.35.1"
-bitmaps = "3.1.0"
+bitvec = "0.22.3"
 rand = "0.8.4"
 quick-xml = "0.22.0"

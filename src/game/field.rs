@@ -1,5 +1,6 @@
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
+use sdl2::render::WindowCanvas;
 
 pub struct Field
 {
@@ -8,103 +9,72 @@ pub struct Field
 	pub blocks: Vec<(i32, i32)>,
 	pub colors: Vec<Color>,
 
-	pub width: u32,
-	pub height: u32,
+	pub field_dim: (usize, usize),
 	pub block_size: u32,
 }
 
 impl Field
 {
-	pub fn init(pos: (i32, i32), block_size: u32) -> Self
+	pub fn draw_blocks_delta(
+		&self,
+		canvas: &mut WindowCanvas,
+		pos: (i32, i32),
+		blocks: &[(i32, i32)],
+		colors: &[Color],
+	)
 	{
-		const W: u32 = 10;
-		const H: u32 = 20;
+		for (b, c) in blocks.iter().zip(colors.iter()) {
+			canvas.set_draw_color(*c);
 
-		let width = W * block_size;
-		let height = H * block_size;
+			let rect = Rect::new(
+				self.rect.x + (pos.0 + b.0) * self.block_size as i32,
+				self.rect.y + (pos.1 + b.1) * self.block_size as i32,
+				self.block_size,
+				self.block_size,
+			);
 
+			canvas.fill_rect(rect).unwrap();
+		}
+	}
+
+	pub fn draw_blocks(&self, canvas: &mut WindowCanvas, blocks: &[(i32, i32)], colors: &[Color])
+	{
+		self.draw_blocks_delta(canvas, (0, 0), blocks, colors)
+	}
+
+	pub fn init(block_size: u32, dim: (usize, usize)) -> Self
+	{
 		Field {
-			rect: Rect::new(pos.0, pos.1, width, height),
-			blocks: vec![],
-			colors: vec![],
-			width: W,
-			height: H,
+			rect: Rect::new(0, 0, dim.0 as u32 * block_size, dim.1 as u32 * block_size),
+			blocks: Vec::default(),
+			colors: Vec::default(),
+			field_dim: dim,
 			block_size,
 		}
 	}
 
-	pub fn add_pieces(&mut self, blocks: &[(i32, i32)], color: Color)
+	pub fn add_pieces(&mut self, blocks: &[(i32, i32)], color: &[Color])
 	{
-		self.colors.resize(self.colors.len() + blocks.len(), color);
+		debug_assert!(self.check_valid(blocks));
+		debug_assert_eq!(blocks.len(), color.len());
 
-		self.blocks.reserve(blocks.len());
-		for i in blocks {
-			self.blocks.push(*i);
-		}
+		self.colors.extend(color);
+		self.blocks.extend_from_slice(blocks);
 	}
 
-	pub fn check_valid(&self, piece: &Piece) -> bool
+	pub fn check_valid_pos(&self, pos: (i32, i32), blocks: &[(i32, i32)]) -> bool
 	{
-		!piece.blocks.iter().any(|b| {
-			self.blocks.contains(b)
-				|| b.0 < 0 || b.0 >= self.width as i32
-				|| b.1 >= self.height as i32
+		!blocks.iter().any(|block| {
+			let b = (block.0 + pos.0, block.1 + pos.1);
+
+			self.blocks.contains(&b)
+				|| b.0 < 0 || b.0 >= self.field_dim.0 as i32
+				|| b.1 >= self.field_dim.1 as i32
 		})
 	}
-}
 
-// -----------------------------------------------------------------------------
-// Movable Piece
-// -----------------------------------------------------------------------------
-
-pub enum Direction
-{
-	LEFT,
-	RIGHT,
-	DOWN,
-}
-
-pub struct Piece
-{
-	pub color: Vec<Color>,
-	pub blocks: Vec<(i32, i32)>,
-}
-
-impl Piece
-{
-	pub fn init() -> Piece
+	pub fn check_valid(&self, blocks: &[(i32, i32)]) -> bool
 	{
-		Piece {
-			color: vec![],
-			blocks: vec![],
-		}
-	}
-
-	pub fn new(blocks: Vec<(i32, i32)>, color: Vec<Color>) -> Piece
-	{
-		Piece { color, blocks }
-	}
-}
-
-impl Piece
-{
-	pub fn move_piece(&mut self, field: &Field, d: Direction) -> bool
-	{
-		let p: Piece = Piece::new(
-			match d {
-				Direction::LEFT => self.blocks.iter().map(|b| (b.0 - 1, b.1)).collect(),
-				Direction::RIGHT => self.blocks.iter().map(|b| (b.0 + 1, b.1)).collect(),
-				Direction::DOWN => self.blocks.iter().map(|b| (b.0, b.1 + 1)).collect(),
-			},
-			self.color.clone(),
-		);
-
-		let v = field.check_valid(&p);
-
-		if v {
-			*self = p;
-		}
-
-		v
+		self.check_valid_pos((0, 0), blocks)
 	}
 }

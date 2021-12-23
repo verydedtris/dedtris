@@ -1,56 +1,83 @@
-use bitmaps::Bitmap;
 use sdl2::pixels::Color;
 
-type Template = (Bitmap<64>, Color);
+use super::field::Field;
+use super::gen;
 
-pub struct Pieces
+// -----------------------------------------------------------------------------
+// Movable Piece
+// -----------------------------------------------------------------------------
+
+pub enum Direction
 {
-	pub templates: Vec<Template>,
-	pub template_size: usize,
+	LEFT,
+	RIGHT,
+	DOWN,
 }
 
-impl Pieces
+pub struct PlayerPiece
 {
-	pub fn init() -> Self
+	pub pos: (i32, i32),
+
+	pub dim: usize,
+	pub colors: Vec<Color>,
+	pub blocks: Vec<(i32, i32)>,
+}
+
+impl PlayerPiece
+{
+	pub fn new(field: &Field, pos: (i32, i32), piece: gen::Piece) -> Option<Self>
 	{
-		Pieces {
-			template_size: 4,
-			templates: vec![
-				// Load defaults
-				(Bitmap::<64>::from_value(0b0000001001100100u64), Color::RED),
-				(Bitmap::<64>::from_value(0b0000010001100010u64), Color::BLUE),
-				(
-					Bitmap::<64>::from_value(0b0000001001110000u64),
-					Color::GREEN,
-				),
-				(
-					Bitmap::<64>::from_value(0b0000010001000110u64),
-					Color::YELLOW,
-				),
-				(Bitmap::<64>::from_value(0b0000001000100110u64), Color::GRAY),
-				(Bitmap::<64>::from_value(0b0100010001000100u64), Color::CYAN),
-			],
+		if field.check_valid(&piece.blocks) {
+			Some(Self {
+				pos,
+				dim: piece.dim,
+				colors: piece.colors,
+				blocks: piece.blocks,
+			})
+		} else {
+			None
 		}
 	}
 
-	pub fn spawn_piece(&self, temp_idx: usize) -> Vec<(i32, i32)>
+	pub fn output_blocks(&mut self) -> (Vec<(i32, i32)>, Vec<Color>)
 	{
-		debug_assert!(self.templates.len() > temp_idx);
+		(
+			self.blocks.iter().map(|b| (b.0 + self.pos.0, b.1 + self.pos.1)).collect(),
+			std::mem::take(&mut self.colors),
+		)
+	}
+}
 
-		let t = &self.templates[temp_idx];
+impl PlayerPiece
+{
+	pub fn rotate(&mut self, field: &Field) -> bool
+	{
+		let p: Vec<(i32, i32)> =
+			self.blocks.iter().map(|b| (self.dim as i32 - 1 - b.1, b.0)).collect();
 
-		let mut r: Vec<(i32, i32)> = vec![];
-		r.reserve(4);
+		let v = field.check_valid_pos(self.pos, &p);
 
-		for i in 0..self.template_size * self.template_size {
-			if t.0.get(i.into()) {
-				r.push((
-					(i % self.template_size) as i32,
-					(i / self.template_size) as i32,
-				));
-			}
+		if v {
+			self.blocks = p;
 		}
 
-		r
+		v
+	}
+
+	pub fn move_piece(&mut self, field: &Field, d: Direction) -> bool
+	{
+		let p = match d {
+			Direction::LEFT => (self.pos.0 - 1, self.pos.1),
+			Direction::RIGHT => (self.pos.0 + 1, self.pos.1),
+			Direction::DOWN => (self.pos.0, self.pos.1 + 1),
+		};
+
+		let v = field.check_valid_pos(p, &self.blocks);
+
+		if v {
+			self.pos = p;
+		}
+
+		v
 	}
 }

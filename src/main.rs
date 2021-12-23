@@ -1,24 +1,29 @@
-extern crate bitmaps;
+extern crate bitvec;
 extern crate sdl2;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::video::Window;
+use std::path::Path;
 use std::time::Duration;
 
-mod component;
-use component::Component;
-
+mod file;
 mod game;
-
-fn init_game(window: &Window) -> (game::Data,)
-{
-	(game::Data::init(window),)
-}
 
 fn main()
 {
+    // Load resources
+
+	let theme = match file::Theme::load(Path::new("test.xml")) {
+        Ok(o) => o,
+        Err(e) => {
+            println!("Couldn't load theme: {}", e);
+            return;
+        }
+    };
+
+    // Init SDL2 and its window system
+
 	let sdl_context = sdl2::init().unwrap();
 	let video_subsystem = sdl_context.video().unwrap();
 
@@ -34,7 +39,11 @@ fn main()
 	canvas.clear();
 	canvas.present();
 
-	let (mut game,) = init_game(canvas.window());
+    // Init Game
+
+	let mut game = game::Data::init(canvas.output_size().unwrap(), theme);
+
+    // Event Loop
 
 	let mut event_pump = sdl_context.event_pump().unwrap();
 	let mut i = 0;
@@ -52,7 +61,9 @@ fn main()
 					keycode: Some(Keycode::Escape),
 					..
 				} => break 'running,
-				_ => { game.handle_event(&event); }
+				_ => {
+					game.handle_event(&event);
+				}
 			}
 		}
 

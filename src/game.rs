@@ -1,24 +1,24 @@
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
-use sdl2::video::Window;
 
-use super::component::*;
+use crate::file::Theme;
+use crate::game::pieces::Direction;
 
-mod pieces;
-use pieces::*;
+use self::field::Field;
+use self::gen::Pieces;
+use self::pieces::PlayerPiece;
 
 mod field;
-use field::*;
+mod gen;
+mod pieces;
 
 pub struct Data
 {
 	field: Field,
 	pieces: Pieces,
-
-	piece: Piece,
+	piece: Option<PlayerPiece>,
 }
 
 impl Data
@@ -31,90 +31,104 @@ impl Data
 
 	fn draw_pieces(&self, canvas: &mut WindowCanvas)
 	{
-		for (b, c) in self.field.blocks.iter().zip(self.field.colors.iter()) {
-			canvas.set_draw_color(*c);
-
-			let rect = Rect::new(
-				self.field.rect.x + b.0 * self.field.block_size as i32,
-				self.field.rect.y + b.1 * self.field.block_size as i32,
-				self.field.block_size,
-				self.field.block_size,
-			);
-
-			canvas.fill_rect(rect).unwrap();
-		}
+		self.field.draw_blocks(canvas, &self.field.blocks, &self.field.colors);
 	}
 
 	fn draw_piece(&self, canvas: &mut WindowCanvas)
 	{
-		for (b, c) in self.piece.blocks.iter().zip(self.piece.color.iter()) {
-			canvas.set_draw_color(*c);
-
-			let rect = Rect::new(
-				self.field.rect.x + b.0 * self.field.block_size as i32,
-				self.field.rect.y + b.1 * self.field.block_size as i32,
-				self.field.block_size,
-				self.field.block_size,
-			);
-
-			canvas.fill_rect(rect).unwrap();
+		if let Some(p) = &self.piece {
+			self.field.draw_blocks_delta(canvas, p.pos, &p.blocks, &p.colors);
 		}
 	}
 }
 
-impl Component for Data
+impl Data
 {
-	fn init(window: &Window) -> Self
+	pub fn init(dim: (u32, u32), t: Theme) -> Self
 	{
 		const THESHOLD: u32 = 20;
+		let block = (dim.1 - THESHOLD) / 20;
 
-		let win_size = window.size();
-		let block = (win_size.1 - THESHOLD) / 20;
+		let d = Data {
+			field: Field::init(block, t.field_dim),
+			pieces: Pieces::init(t.patterns),
+			piece: None,
+		};
 
-		Data {
-			field: Field::init((0, 0), block),
-			pieces: Pieces::init(),
-			piece: Piece::init(),
-		}
+		d
 	}
 
-	fn handle_event(&mut self, event: &Event)
+	pub fn handle_event(&mut self, event: &Event)
 	{
 		match event {
 			Event::KeyDown {
 				keycode: Some(Keycode::N),
 				..
 			} => {
-				self.piece = Piece::new(self.pieces.spawn_piece(0), vec![Color::GREEN; 4]);
+				let selected = self.pieces.spawn_piece(2);
+				self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
 				println!("Added piece");
+
+				if self.piece.is_none() {
+					println!("Game Over.");
+				}
 			}
 			Event::KeyDown {
 				keycode: Some(Keycode::Left),
 				..
 			} => {
-				self.piece.move_piece(&self.field, Direction::LEFT);
-				println!("Moved to left");
+				if let Some(p) = &mut self.piece {
+					p.move_piece(&self.field, Direction::LEFT);
+					println!("Moved to left");
+				}
 			}
 			Event::KeyDown {
 				keycode: Some(Keycode::Right),
 				..
 			} => {
-				self.piece.move_piece(&self.field, Direction::RIGHT);
-				println!("Moved to right");
+				if let Some(p) = &mut self.piece {
+					p.move_piece(&self.field, Direction::RIGHT);
+					println!("Moved to right");
+				}
 			}
 			Event::KeyDown {
 				keycode: Some(Keycode::Down),
 				..
 			} => {
-				self.piece.move_piece(&self.field, Direction::DOWN);
-				println!("Moved to bottom");
+				if let Some(p) = &mut self.piece {
+					if p.move_piece(&self.field, Direction::DOWN) {
+						return;
+					}
+
+                    let piece = p.output_blocks();
+					self.field.add_pieces(&piece.0, &piece.1);
+
+					let selected = self.pieces.spawn_piece(2);
+					self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
+					println!("Added piece");
+
+					if self.piece.is_none() {
+						println!("Game Over.");
+					}
+				}
+
+				println!("Moved down");
+			}
+			Event::KeyDown {
+				keycode: Some(Keycode::Up),
+				..
+			} => {
+				if let Some(p) = &mut self.piece {
+					p.rotate(&self.field);
+					println!("Rotated");
+				}
 			}
 
 			_ => {}
 		}
 	}
 
-	fn draw(&self, canvas: &mut WindowCanvas)
+	pub fn draw(&self, canvas: &mut WindowCanvas)
 	{
 		self.draw_field(canvas);
 		self.draw_pieces(canvas);

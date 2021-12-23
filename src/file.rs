@@ -1,6 +1,5 @@
 use bitvec::prelude::BitVec;
-use quick_xml::events::attributes::Attributes;
-use quick_xml::events::Event;
+use quick_xml::events::{BytesStart, BytesText, Event};
 use quick_xml::{Error, Reader};
 use sdl2::pixels::Color;
 use std::fs::File;
@@ -22,12 +21,21 @@ pub struct Pattern
 
 impl Pattern
 {
-	fn new(dim: usize, template: BitVec) -> Self
+	fn new() -> Self
+	{
+		Pattern {
+			dim: 0,
+			colors: Vec::new(),
+			template: BitVec::new(),
+		}
+	}
+
+	fn from_dim(dim: usize) -> Self
 	{
 		Pattern {
 			dim,
-			colors: vec![Color::RED; 4],
-			template,
+			colors: Vec::new(),
+			template: BitVec::new(),
 		}
 	}
 }
@@ -74,12 +82,12 @@ impl Theme
 // Error
 // -----------------------------------------------------------------------------
 
-struct ParseError
+pub struct ParseError
 {
 	err: String,
 }
 
-impl std::fmt::Debug for ParseError
+impl std::fmt::Display for ParseError
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
 	{
@@ -120,6 +128,8 @@ impl From<ParseIntError> for ParseError
 // XML Parser
 // -----------------------------------------------------------------------------
 
+type Parser = Reader<BufReader<File>>;
+
 fn load_xml(path: &Path) -> Result<Reader<BufReader<File>>, ParseError>
 {
 	if let Ok(reader) = Reader::from_file(path) {
@@ -135,58 +145,86 @@ fn load_xml(path: &Path) -> Result<Reader<BufReader<File>>, ParseError>
 	}
 }
 
-fn parse_block<'a>(
-	r: &'a mut Reader<BufReader<File>>,
-	name_list: &[&[u8]],
-) -> Result<Option<(usize, Attributes<'a>)>, ParseError>
+enum XMLStates
 {
-	let mut buf = Vec::new();
+	Theme,
+	Piece,
+	PieceBody(Pattern),
+}
 
-	loop {
-		match r.read_event(&mut buf) {
-			Ok(Event::Eof) => break,
-			Ok(Event::Start(ref e)) => {
-				if let Some(x) = name_list.iter().position(|x| *x == e.name()) {
-					return Ok(Some((x, e.attributes())));
+impl Theme
+{
+	pub fn load(path: &Path) -> Result<Theme, ParseError>
+	{
+		let mut reader = load_xml(path)?;
+		let mut buffer = Vec::new();
+
+		let mut dim: Option<(usize, usize)> = None;
+		let mut patterns: Vec<Pattern> = Vec::new();
+
+		let mut state = XMLStates::Theme;
+
+		// Parse XML document
+
+		loop {
+			match reader.read_event(&mut buffer) {
+				Ok(Event::Eof) => break,
+
+				Ok(Event::Start(ref e)) => {
+					state = match state {
+						XMLStates::Theme => {
+							println!("Found Theme tag");
+							let (s, d) = parse_root(&mut reader, &e)?;
+							dim = Some(d);
+							s
+						}
+
+						XMLStates::Piece => {
+							println!("Found Piece tag");
+							parse_piece(&mut reader, &e)?.unwrap_or(state)
+						}
+
+						XMLStates::PieceBody(_) => {
+							return Err(ParseError::from_str("Missing piece body."))
+						}
+					}
 				}
+
+				Ok(Event::Text(ref e)) => {
+					println!("{:?}", e.unescape_and_decode(&reader)?);
+
+					state = match state {
+						XMLStates::PieceBody(p) => {
+							println!("Found Piece body");
+							let (s, p) = parse_piece_body(&mut reader, &e, p)?;
+							patterns.push(p);
+							s
+						}
+
+						_ => state,
+					}
+				}
+
+				Err(e) => return Err(ParseError::from_pos(&reader, &e)),
+				_ => (),
 			}
 
-			Err(e) => return Err(ParseError::from_pos(r, &e)),
-			_ => (),
+			buffer.clear();
 		}
 
-		buf.clear();
-	}
+		// Check validity
 
-	Ok(None)
-}
+		let dim = if let Some(d) = dim {
+			d
+		} else {
+			return Err(ParseError::from_str("Missing field size."));
+		};
 
-fn parse_attrib<'a>(
-	r: &'a mut Reader<BufReader<File>>,
-	e: Attributes<'a>,
-) -> Result<Vec<(&'a [u8], String)>, ParseError>
-{
-	let res = Vec::new();
+		if patterns.is_empty() {
+			return Err(ParseError::from_str("There must be at least 1 pattern."));
+		}
 
-	for attrib in e {
-		let a = attrib?;
-		let v = a.unescape_and_decode_value(r)?;
-
-		res.push((a.key, v));
-	}
-
-	Ok(res)
-}
-
-fn parse_text(r: &mut Reader<BufReader<File>>) -> Result<String, ParseError>
-{
-	let mut buf = Vec::new();
-
-	match r.read_event(&mut buf) {
-		Ok(Event::Text(ref e)) => Ok(e.unescape_and_decode(r)?),
-
-		Err(e) => Err(ParseError::from_pos(r, &e)),
-		_ => Err(ParseError::from_str("Expected text.")),
+		Ok(Theme::from_data(patterns, dim))
 	}
 }
 
@@ -194,35 +232,25 @@ fn parse_text(r: &mut Reader<BufReader<File>>) -> Result<String, ParseError>
 // Theme Parser
 // -----------------------------------------------------------------------------
 
-impl Theme
+fn parse_root(
+	r: &mut Parser,
+	e: &BytesStart,
+) -> Result<(XMLStates, (usize, usize)), ParseError>
 {
-	pub fn load(path: &Path) -> Result<Theme, ParseError>
-	{
-		let mut reader = load_xml(path)?;
-		Ok(parse_root(&mut reader)?)
-	}
-}
-
-fn parse_root(r: &mut Reader<BufReader<File>>) -> Result<Theme, ParseError>
-{
-	while let Some(i) = parse_block(r, &[b"tetris"])? {
-		match i.0 {
-			0 => return parse_tetris(r, i.1),
-			_ => (),
-		}
+	if e.name() != b"theme" {
+		return Err(ParseError::from_str("No tetris root found."));
 	}
 
-	Err(ParseError::from_str("No tetris root found."))
-}
-
-fn parse_tetris(r: &mut Reader<BufReader<File>>, e: Attributes) -> Result<Theme, ParseError>
-{
 	let mut dim = (0usize, 0usize);
 
-	for a in parse_attrib(r, e)? {
-		match a.0 {
-			b"w" => dim.0 = a.1.parse()?,
-			b"h" => dim.1 = a.1.parse()?,
+	for a in e.attributes() {
+		let x = a?;
+		let v = x.unescape_and_decode_value(r)?;
+
+		match x.key {
+			b"w" => dim.0 = v.parse()?,
+			b"h" => dim.1 = v.parse()?,
+			_ => (),
 		}
 	}
 
@@ -230,65 +258,77 @@ fn parse_tetris(r: &mut Reader<BufReader<File>>, e: Attributes) -> Result<Theme,
 		return Err(ParseError::from_str("Field width or height can't be 0."));
 	}
 
-	let mut patterns: Vec<_> = Vec::new();
+	Ok((XMLStates::Piece, dim))
+}
 
-	while let Some(i) = parse_block(r, &[b"piece"])? {
-		match i.0 {
-			0 => {
-				patterns.push(parse_piece(r, i.1)?);
-			}
+fn parse_piece(
+	r: &mut Parser,
+	e: &BytesStart,
+) -> Result<Option<XMLStates>, ParseError>
+{
+	if e.name() != b"piece" {
+		return Ok(None);
+	}
+
+	let mut dim: Option<usize> = None;
+
+	for a in e.attributes() {
+		let x = a?;
+		let v = x.unescape_and_decode_value(r)?;
+
+		match x.key {
+			b"r" => dim = Some(v.parse()?),
 			_ => (),
 		}
 	}
 
-	Ok(Theme::from_data(patterns, dim))
-}
-
-fn parse_piece(r: &mut Reader<BufReader<File>>, e: Attributes) -> Result<Pattern, ParseError>
-{
-	let mut dim = 0usize;
-
-	for a in parse_attrib(r, e)? {
-		match a.0 {
-			b"r" => dim = a.1.parse()?,
-		}
-	}
+	let dim = if let Some(d) = dim {
+		d
+	} else {
+		return Err(ParseError::from_str("Piece has a missing width."));
+	};
 
 	if dim == 0 {
-		return Err(ParseError::from_str(
-			"Pieces can't have a 0 width or a piece has a missing width.",
-		));
+		return Err(ParseError::from_str("Pieces can't have a 0 width."));
 	}
 
-	let field = parse_template(dim, parse_text(r)?)?;
-
-	Ok(Pattern::new(dim, field))
+	return Ok(Some(XMLStates::PieceBody(Pattern::from_dim(dim))));
 }
 
-fn parse_template(s: usize, mut data: String) -> Result<BitVec, ParseError>
+fn parse_piece_body(
+	r: &mut Parser,
+	e: &BytesText,
+	mut p: Pattern,
+) -> Result<(XMLStates, Pattern), ParseError>
 {
+	let mut data = e.unescape_and_decode(r)?;
 	data.retain(|c| !c.is_whitespace());
 
-	if s * s != data.len() {
+	let pat_size = p.dim * p.dim;
+
+	if pat_size != data.len() {
 		return Err(ParseError::from_str(
 			format!(
 				"A piece size doesn't match it's given size. is: {}, should be: {}.",
 				data.len().to_string(),
-				(s * s).to_string()
+				pat_size.to_string()
 			)
 			.as_str(),
 		));
 	}
 
-	let mut field = BitVec::with_capacity(s * s);
+	let mut field = BitVec::with_capacity(pat_size);
 
-	for i in data.char_indices() {
-		match i.1 {
-			'1' => field.set(i.0, true),
-			'0' => field.set(i.0, false),
+	for i in data.chars() {
+		match i {
+			'1' => field.push(true),
+			'0' => field.push(false),
 			_ => return Err(ParseError::from_str("Characters must be 0's or 1's.")),
 		}
 	}
 
-	Ok(field)
+	p.colors = vec![Color::RED; 4];
+	p.template = field;
+
+	Ok((XMLStates::Piece, p))
 }
