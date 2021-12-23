@@ -3,16 +3,18 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::WindowCanvas;
 
-use crate::file::Theme;
 use crate::game::pieces::Direction;
 
 use self::field::Field;
 use self::gen::Pieces;
 use self::pieces::PlayerPiece;
 
+pub use self::theme::Theme;
+
 mod field;
 mod gen;
 mod pieces;
+mod theme;
 
 pub struct Data
 {

@@ -14,7 +14,7 @@ fn main()
 {
     // Load resources
 
-	let theme = match file::Theme::load(Path::new("test.xml")) {
+	let theme = match game::Theme::load(Path::new("test.xml")) {
         Ok(o) => o,
         Err(e) => {
             println!("Couldn't load theme: {}", e);

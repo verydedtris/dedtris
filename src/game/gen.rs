@@ -1,7 +1,7 @@
 use bitvec::prelude::BitVec;
 use sdl2::pixels::Color;
 
-use crate::file;
+use super::theme;
 
 // -----------------------------------------------------------------------------
 // Piece
@@ -44,7 +44,7 @@ pub struct Pieces
 
 impl Pieces
 {
-	pub fn init(ps: Vec<file::Pattern>) -> Self
+	pub fn init(ps: Vec<theme::Pattern>) -> Self
 	{
 		let mut templates = Vec::new();
 
