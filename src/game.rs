@@ -16,14 +16,14 @@ mod gen;
 mod pieces;
 mod theme;
 
-pub struct Data
+pub struct Instance
 {
 	field: Field,
 	pieces: Pieces,
 	piece: Option<PlayerPiece>,
 }
 
-impl Data
+impl Instance
 {
 	fn draw_field(&self, canvas: &mut WindowCanvas)
 	{
@@ -44,14 +44,14 @@ impl Data
 	}
 }
 
-impl Data
+impl Instance
 {
 	pub fn init(dim: (u32, u32), t: Theme) -> Self
 	{
 		const THESHOLD: u32 = 20;
 		let block = (dim.1 - THESHOLD) / 20;
 
-		let d = Data {
+		let d = Instance {
 			field: Field::init(block, t.field_dim),
 			pieces: Pieces::init(t.patterns),
 			piece: None,
@@ -64,47 +64,9 @@ impl Data
 	{
 		match event {
 			Event::KeyDown {
-				keycode: Some(Keycode::N),
-				..
-			} => {
-				let selected = self.pieces.spawn_piece(2);
-				self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
-				println!("Added piece");
-
-				if self.piece.is_none() {
-					println!("Game Over.");
-				}
-			}
-			Event::KeyDown {
-				keycode: Some(Keycode::Left),
-				..
-			} => {
-				if let Some(p) = &mut self.piece {
-					p.move_piece(&self.field, Direction::LEFT);
-					println!("Moved to left");
-				}
-			}
-			Event::KeyDown {
-				keycode: Some(Keycode::Right),
-				..
-			} => {
-				if let Some(p) = &mut self.piece {
-					p.move_piece(&self.field, Direction::RIGHT);
-					println!("Moved to right");
-				}
-			}
-			Event::KeyDown {
-				keycode: Some(Keycode::Down),
-				..
-			} => {
-				if let Some(p) = &mut self.piece {
-					if p.move_piece(&self.field, Direction::DOWN) {
-						return;
-					}
-
-                    let piece = p.output_blocks();
-					self.field.add_pieces(&piece.0, &piece.1);
-
+				keycode: Some(x), ..
+			} => match x {
+				Keycode::N => {
 					let selected = self.pieces.spawn_piece(2);
 					self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
 					println!("Added piece");
@@ -114,19 +76,52 @@ impl Data
 					}
 				}
 
-				println!("Moved down");
-			}
-			Event::KeyDown {
-				keycode: Some(Keycode::Up),
-				..
-			} => {
-				if let Some(p) = &mut self.piece {
-					p.rotate(&self.field);
-					println!("Rotated");
+				Keycode::Left => {
+					if let Some(p) = &mut self.piece {
+						p.move_piece(&self.field, Direction::LEFT);
+						println!("Moved to left");
+					}
 				}
-			}
 
-			_ => {}
+				Keycode::Right => {
+					if let Some(p) = &mut self.piece {
+						p.move_piece(&self.field, Direction::RIGHT);
+						println!("Moved to right");
+					}
+				}
+
+				Keycode::Down => {
+					if let Some(p) = &mut self.piece {
+						if p.move_piece(&self.field, Direction::DOWN) {
+							return;
+						}
+
+						let piece = p.output_blocks();
+						self.field.add_pieces(&piece.0, &piece.1);
+
+						let selected = self.pieces.spawn_piece(2);
+						self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
+						println!("Added piece");
+
+						if self.piece.is_none() {
+							println!("Game Over.");
+						}
+					}
+
+					println!("Moved down");
+				}
+
+				Keycode::Up => {
+					if let Some(p) = &mut self.piece {
+						p.rotate(&self.field);
+						println!("Rotated");
+					}
+				}
+
+				_ => (),
+			},
+
+			_ => (),
 		}
 	}
 

@@ -41,7 +41,7 @@ fn main()
 
     // Init Game
 
-	let mut game = game::Data::init(canvas.output_size().unwrap(), theme);
+	let mut game = game::Instance::init(canvas.output_size().unwrap(), theme);
 
     // Event Loop
 
