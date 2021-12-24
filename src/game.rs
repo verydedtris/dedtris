@@ -25,27 +25,6 @@ pub struct Instance
 
 impl Instance
 {
-	fn draw_field(&self, canvas: &mut WindowCanvas)
-	{
-		canvas.set_draw_color(Color::RGB(0, 0, 0));
-		canvas.fill_rect(self.field.rect).unwrap();
-	}
-
-	fn draw_pieces(&self, canvas: &mut WindowCanvas)
-	{
-		self.field.draw_blocks(canvas, &self.field.blocks, &self.field.colors);
-	}
-
-	fn draw_piece(&self, canvas: &mut WindowCanvas)
-	{
-		if let Some(p) = &self.piece {
-			self.field.draw_blocks_delta(canvas, p.pos, &p.blocks, &p.colors);
-		}
-	}
-}
-
-impl Instance
-{
 	pub fn init(dim: (u32, u32), t: Theme) -> Self
 	{
 		const THESHOLD: u32 = 20;
@@ -67,11 +46,7 @@ impl Instance
 				keycode: Some(x), ..
 			} => match x {
 				Keycode::N => {
-					let selected = self.pieces.spawn_piece(2);
-					self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
-					println!("Added piece");
-
-					if self.piece.is_none() {
+					if !self.spawn_piece() {
 						println!("Game Over.");
 					}
 				}
@@ -96,14 +71,11 @@ impl Instance
 							return;
 						}
 
-						let piece = p.output_blocks();
-						self.field.add_pieces(&piece.0, &piece.1);
+						self.push_piece();
 
-						let selected = self.pieces.spawn_piece(2);
-						self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
-						println!("Added piece");
+						self.field.clear_lines();
 
-						if self.piece.is_none() {
+						if self.spawn_piece() {
 							println!("Game Over.");
 						}
 					}
@@ -130,5 +102,48 @@ impl Instance
 		self.draw_field(canvas);
 		self.draw_pieces(canvas);
 		self.draw_piece(canvas);
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Game actions
+// -----------------------------------------------------------------------------
+
+impl Instance
+{
+	fn spawn_piece(&mut self) -> bool
+	{
+		println!("Added piece");
+
+		let selected = self.pieces.spawn_piece(2);
+		self.piece = PlayerPiece::new(&self.field, (0, 0), selected);
+
+		self.piece.is_some()
+	}
+
+	fn push_piece(&mut self)
+	{
+		println!("Pushed piece");
+
+		let piece = self.piece.as_mut().unwrap().output_blocks();
+		self.field.add_pieces(&piece.0, &piece.1);
+	}
+
+	fn draw_field(&self, canvas: &mut WindowCanvas)
+	{
+		canvas.set_draw_color(Color::RGB(0, 0, 0));
+		canvas.fill_rect(self.field.rect).unwrap();
+	}
+
+	fn draw_pieces(&self, canvas: &mut WindowCanvas)
+	{
+		self.field.draw_blocks(canvas, &self.field.blocks, &self.field.colors);
+	}
+
+	fn draw_piece(&self, canvas: &mut WindowCanvas)
+	{
+		if let Some(p) = &self.piece {
+			self.field.draw_blocks_delta(canvas, p.pos, &p.blocks, &p.colors);
+		}
 	}
 }

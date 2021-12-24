@@ -15,6 +15,20 @@ pub struct Field
 
 impl Field
 {
+	pub fn init(block_size: u32, dim: (usize, usize)) -> Self
+	{
+		Field {
+			rect: Rect::new(0, 0, dim.0 as u32 * block_size, dim.1 as u32 * block_size),
+			blocks: Vec::default(),
+			colors: Vec::default(),
+			field_dim: dim,
+			block_size,
+		}
+	}
+}
+
+impl Field
+{
 	pub fn draw_blocks_delta(
 		&self,
 		canvas: &mut WindowCanvas,
@@ -42,17 +56,6 @@ impl Field
 		self.draw_blocks_delta(canvas, (0, 0), blocks, colors)
 	}
 
-	pub fn init(block_size: u32, dim: (usize, usize)) -> Self
-	{
-		Field {
-			rect: Rect::new(0, 0, dim.0 as u32 * block_size, dim.1 as u32 * block_size),
-			blocks: Vec::default(),
-			colors: Vec::default(),
-			field_dim: dim,
-			block_size,
-		}
-	}
-
 	pub fn add_pieces(&mut self, blocks: &[(i32, i32)], color: &[Color])
 	{
 		debug_assert!(self.check_valid(blocks));
@@ -60,6 +63,55 @@ impl Field
 
 		self.colors.extend(color);
 		self.blocks.extend_from_slice(blocks);
+	}
+
+	pub fn lines_list(&self) -> Vec<i32>
+	{
+		let mut lines = vec![0i32; self.field_dim.1];
+
+		for b in &self.blocks {
+			lines[b.1 as usize] += 1;
+		}
+
+		let lines = lines;
+
+		lines
+			.iter()
+			.enumerate()
+			.filter_map(|(i, l)| {
+				if *l >= self.field_dim.0 as i32 {
+					Some(i as i32)
+				} else {
+					None
+				}
+			})
+			.collect()
+	}
+
+	pub fn clear_lines(&mut self)
+	{
+		let lines = self.lines_list();
+
+		println!("Filled lines: {:?}", lines);
+
+		let mut removed = 0;
+		for i in 0..self.blocks.len() {
+			let i = i - removed;
+
+			if let Some(l) = lines.iter().position(|f| *f >= self.blocks[i].1) {
+				println!("Line: {}", lines[l]);
+
+				if self.blocks[i].1 == lines[l] as i32 {
+					self.blocks.swap_remove(i);
+					self.colors.swap_remove(i);
+					removed += 1;
+				} else {
+					let shift = lines.len() - l;
+					println!("Shift: {}", shift);
+					self.blocks[i].1 += shift as i32;
+				}
+			}
+		}
 	}
 
 	pub fn check_valid_pos(&self, pos: (i32, i32), blocks: &[(i32, i32)]) -> bool
