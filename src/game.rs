@@ -1,6 +1,7 @@
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::WindowCanvas;
 
 use crate::game::pieces::Direction;
@@ -14,6 +15,7 @@ pub use self::theme::Theme;
 mod field;
 mod gen;
 mod pieces;
+mod size;
 mod theme;
 
 pub struct Instance
@@ -27,16 +29,17 @@ impl Instance
 {
 	pub fn init(dim: (u32, u32), t: Theme) -> Self
 	{
-		const THESHOLD: u32 = 20;
-		let block = (dim.1 - THESHOLD) / (t.field_dim.1 + 2) as u32;
-
 		let mut d = Instance {
-			field: Field::init(block, t.field_dim),
+			field: Field::init(t.field_dim),
 			pieces: Pieces::init(t.patterns),
 			piece: None,
 		};
 
-		d.resize(dim);
+		let p = size::new_resize(dim, d.field.field_dim);
+
+		d.field.block_size = p.block_size;
+		d.field.rect = p.field_rect;
+
 		d.spawn_piece();
 
 		d
@@ -89,7 +92,10 @@ impl Instance
 				win_event: WindowEvent::Resized(w, h),
 				..
 			} => {
-				self.resize((*w as u32, *h as u32));
+				let p = size::new_resize((*w as u32, *h as u32), self.field.field_dim);
+
+				self.field.block_size = p.block_size;
+				self.field.rect = p.field_rect;
 			}
 
 			_ => (),
@@ -126,12 +132,6 @@ impl Instance
 
 		let piece = self.piece.as_mut().unwrap().delta_blocks();
 		self.field.add_pieces(&piece.0, &piece.1);
-	}
-
-	fn resize(&mut self, dim: (u32, u32))
-	{
-		self.field.rect.x = (dim.0 as i32 - self.field.rect.w) / 2;
-		self.field.rect.y = (dim.1 as i32 - self.field.rect.h) / 2;
 	}
 
 	fn draw_field(&self, canvas: &mut WindowCanvas)

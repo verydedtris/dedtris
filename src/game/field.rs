@@ -15,14 +15,14 @@ pub struct Field
 
 impl Field
 {
-	pub fn init(block_size: u32, dim: (usize, usize)) -> Self
+	pub fn init(field_dim: (usize, usize)) -> Self
 	{
 		Field {
-			rect: Rect::new(0, 0, dim.0 as u32 * block_size, dim.1 as u32 * block_size),
-			blocks: Vec::default(),
-			colors: Vec::default(),
-			field_dim: dim,
-			block_size,
+			rect: Rect::new(0, 0, 0, 0),
+			blocks: Vec::new(),
+			colors: Vec::new(),
+			field_dim,
+			block_size: 0,
 		}
 	}
 }
