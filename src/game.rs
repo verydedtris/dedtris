@@ -36,7 +36,7 @@ impl Instance
 			piece: None,
 		};
 
-        d.resize(dim);
+		d.resize(dim);
 		d.spawn_piece();
 
 		d
@@ -85,11 +85,12 @@ impl Instance
 				}
 			}
 
-            Event::Window {
-                win_event: WindowEvent::Resized(w, h), ..
-            } => {
-                self.resize((*w as u32, *h as u32));
-            }
+			Event::Window {
+				win_event: WindowEvent::Resized(w, h),
+				..
+			} => {
+				self.resize((*w as u32, *h as u32));
+			}
 
 			_ => (),
 		}
