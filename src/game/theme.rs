@@ -250,16 +250,20 @@ fn parse_piece_body(
 	}
 
 	let mut field = BitVec::with_capacity(pat_size);
+	let mut blocks = 0;
 
 	for i in data.chars() {
 		match i {
-			'1' => field.push(true),
+			'1' => {
+				field.push(true);
+				blocks += 1;
+			}
 			'0' => field.push(false),
 			_ => return Err(file::ParseError::from_str("Characters must be 0's or 1's.")),
 		}
 	}
 
-	p.colors = vec![Color::RED; 4];
+	p.colors = vec![Color::RED; blocks];
 	p.template = field;
 
 	Ok((XMLStates::Piece, p))

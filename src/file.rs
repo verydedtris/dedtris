@@ -1,7 +1,4 @@
-use bitvec::prelude::BitVec;
-use quick_xml::events::{BytesStart, BytesText, Event};
 use quick_xml::{Error, Reader};
-use sdl2::pixels::Color;
 use std::fs::File;
 use std::io::BufReader;
 use std::num::ParseIntError;

@@ -7,11 +7,37 @@ use super::theme;
 // Piece
 // -----------------------------------------------------------------------------
 
+#[derive(Default)]
 pub struct Piece
 {
 	pub dim: usize,
 	pub colors: Vec<Color>,
 	pub blocks: Vec<(i32, i32)>,
+}
+
+impl Piece
+{
+	pub fn new(dim: usize, colors: Vec<Color>, blocks: Vec<(i32, i32)>) -> Self
+	{
+		Self {
+			dim,
+			colors,
+			blocks,
+		}
+	}
+}
+
+impl Piece
+{
+	pub fn rotate(&self) -> Vec<(i32, i32)>
+	{
+		self.blocks.iter().map(|b| (self.dim as i32 - 1 - b.1, b.0)).collect()
+	}
+
+	pub fn move_delta(&self, d: (i32, i32)) -> Vec<(i32, i32)>
+	{
+		self.blocks.iter().map(|b| (b.0 + d.0, b.1 + d.1)).collect()
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -27,7 +53,7 @@ pub struct Pattern
 
 impl Pattern
 {
-	fn from_data(dim: usize, colors: Vec<Color>, template: BitVec) -> Pattern
+	fn new(dim: usize, colors: Vec<Color>, template: BitVec) -> Pattern
 	{
 		Pattern {
 			dim,
@@ -46,13 +72,9 @@ impl Pieces
 {
 	pub fn init(ps: Vec<theme::Pattern>) -> Self
 	{
-		let mut templates = Vec::new();
-
-		for i in ps {
-			templates.push(Pattern::from_data(i.dim, i.colors, i.template));
+		Pieces {
+			templates: ps.into_iter().map(|p| Pattern::new(p.dim, p.colors, p.template)).collect(),
 		}
-
-		Pieces { templates }
 	}
 
 	pub fn spawn_piece(&self, temp_idx: usize) -> Piece
@@ -72,10 +94,6 @@ impl Pieces
 
 		debug_assert_eq!(t.colors.len(), r.len());
 
-		Piece {
-			dim: t.dim,
-			colors: t.colors.clone(),
-			blocks: r,
-		}
+		Piece::new(t.dim, t.colors.clone(), r)
 	}
 }

@@ -1,4 +1,4 @@
-use sdl2::event::Event;
+use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::WindowCanvas;
@@ -28,13 +28,16 @@ impl Instance
 	pub fn init(dim: (u32, u32), t: Theme) -> Self
 	{
 		const THESHOLD: u32 = 20;
-		let block = (dim.1 - THESHOLD) / 20;
+		let block = (dim.1 - THESHOLD) / (t.field_dim.1 + 2) as u32;
 
-		let d = Instance {
+		let mut d = Instance {
 			field: Field::init(block, t.field_dim),
 			pieces: Pieces::init(t.patterns),
 			piece: None,
 		};
+
+        d.resize(dim);
+		d.spawn_piece();
 
 		d
 	}
@@ -44,54 +47,49 @@ impl Instance
 		match event {
 			Event::KeyDown {
 				keycode: Some(x), ..
-			} => match x {
-				Keycode::N => {
-					if !self.spawn_piece() {
-						println!("Game Over.");
-					}
-				}
-
-				Keycode::Left => {
-					if let Some(p) = &mut self.piece {
-						p.move_piece(&self.field, Direction::LEFT);
-						println!("Moved to left");
-					}
-				}
-
-				Keycode::Right => {
-					if let Some(p) = &mut self.piece {
-						p.move_piece(&self.field, Direction::RIGHT);
-						println!("Moved to right");
-					}
-				}
-
-				Keycode::Down => {
-					if let Some(p) = &mut self.piece {
-						if p.move_piece(&self.field, Direction::DOWN) {
-							return;
+			} => {
+				if let Some(p) = &mut self.piece {
+					match x {
+						Keycode::Left => {
+							println!("Moved to left");
+							p.move_piece(&self.field, Direction::LEFT);
 						}
 
-						self.push_piece();
-
-						self.field.clear_lines();
-
-						if self.spawn_piece() {
-							println!("Game Over.");
+						Keycode::Right => {
+							println!("Moved to right");
+							p.move_piece(&self.field, Direction::RIGHT);
 						}
+
+						Keycode::Down => {
+							println!("Moved down");
+
+							if p.move_piece(&self.field, Direction::DOWN) {
+								return;
+							}
+
+							self.push_piece();
+							self.field.clear_lines();
+
+							if !self.spawn_piece() {
+								println!("Game Over.");
+							}
+						}
+
+						Keycode::Up => {
+							println!("Rotated");
+							p.rotate(&self.field);
+						}
+
+						_ => (),
 					}
-
-					println!("Moved down");
 				}
+			}
 
-				Keycode::Up => {
-					if let Some(p) = &mut self.piece {
-						p.rotate(&self.field);
-						println!("Rotated");
-					}
-				}
-
-				_ => (),
-			},
+            Event::Window {
+                win_event: WindowEvent::Resized(w, h), ..
+            } => {
+                self.resize((*w as u32, *h as u32));
+            }
 
 			_ => (),
 		}
@@ -125,8 +123,14 @@ impl Instance
 	{
 		println!("Pushed piece");
 
-		let piece = self.piece.as_mut().unwrap().output_blocks();
+		let piece = self.piece.as_mut().unwrap().delta_blocks();
 		self.field.add_pieces(&piece.0, &piece.1);
+	}
+
+	fn resize(&mut self, dim: (u32, u32))
+	{
+		self.field.rect.x = (dim.0 as i32 - self.field.rect.w) / 2;
+		self.field.rect.y = (dim.1 as i32 - self.field.rect.h) / 2;
 	}
 
 	fn draw_field(&self, canvas: &mut WindowCanvas)
@@ -143,7 +147,7 @@ impl Instance
 	fn draw_piece(&self, canvas: &mut WindowCanvas)
 	{
 		if let Some(p) = &self.piece {
-			self.field.draw_blocks_delta(canvas, p.pos, &p.blocks, &p.colors);
+			self.field.draw_blocks_delta(canvas, p.pos, &p.piece.blocks, &p.piece.colors);
 		}
 	}
 }

@@ -65,7 +65,7 @@ impl Field
 		self.blocks.extend_from_slice(blocks);
 	}
 
-	pub fn lines_list(&self) -> Vec<i32>
+	pub fn count_lines(&self) -> Vec<i32>
 	{
 		let mut lines = vec![0i32; self.field_dim.1];
 
@@ -73,9 +73,12 @@ impl Field
 			lines[b.1 as usize] += 1;
 		}
 
-		let lines = lines;
-
 		lines
+	}
+
+	pub fn lines_list(&self) -> Vec<i32>
+	{
+		self.count_lines()
 			.iter()
 			.enumerate()
 			.filter_map(|(i, l)| {
@@ -98,15 +101,15 @@ impl Field
 		for i in 0..self.blocks.len() {
 			let i = i - removed;
 
-			if let Some(l) = lines.iter().position(|f| *f >= self.blocks[i].1) {
-				println!("Line: {}", lines[l]);
+			if let Some(ii) = lines.iter().position(|l| *l >= self.blocks[i].1) {
+				println!("Line: {}", lines[ii]);
 
-				if self.blocks[i].1 == lines[l] as i32 {
+				if self.blocks[i].1 == lines[ii] as i32 {
 					self.blocks.swap_remove(i);
 					self.colors.swap_remove(i);
 					removed += 1;
 				} else {
-					let shift = lines.len() - l;
+					let shift = lines.len() - ii;
 					println!("Shift: {}", shift);
 					self.blocks[i].1 += shift as i32;
 				}

@@ -17,10 +17,7 @@ pub enum Direction
 pub struct PlayerPiece
 {
 	pub pos: (i32, i32),
-
-	pub dim: usize,
-	pub colors: Vec<Color>,
-	pub blocks: Vec<(i32, i32)>,
+	pub piece: gen::Piece,
 }
 
 impl PlayerPiece
@@ -28,22 +25,17 @@ impl PlayerPiece
 	pub fn new(field: &Field, pos: (i32, i32), piece: gen::Piece) -> Option<Self>
 	{
 		if field.check_valid(&piece.blocks) {
-			Some(Self {
-				pos,
-				dim: piece.dim,
-				colors: piece.colors,
-				blocks: piece.blocks,
-			})
+			Some(Self { pos, piece })
 		} else {
 			None
 		}
 	}
 
-	pub fn output_blocks(&mut self) -> (Vec<(i32, i32)>, Vec<Color>)
+	pub fn delta_blocks(&mut self) -> (Vec<(i32, i32)>, Vec<Color>)
 	{
 		(
-			self.blocks.iter().map(|b| (b.0 + self.pos.0, b.1 + self.pos.1)).collect(),
-			std::mem::take(&mut self.colors),
+			self.piece.move_delta(self.pos),
+			std::mem::take(&mut self.piece.colors),
 		)
 	}
 }
@@ -52,13 +44,11 @@ impl PlayerPiece
 {
 	pub fn rotate(&mut self, field: &Field) -> bool
 	{
-		let p: Vec<(i32, i32)> =
-			self.blocks.iter().map(|b| (self.dim as i32 - 1 - b.1, b.0)).collect();
-
+		let p = self.piece.rotate();
 		let v = field.check_valid_pos(self.pos, &p);
 
 		if v {
-			self.blocks = p;
+			self.piece.blocks = p;
 		}
 
 		v
@@ -72,7 +62,7 @@ impl PlayerPiece
 			Direction::DOWN => (self.pos.0, self.pos.1 + 1),
 		};
 
-		let v = field.check_valid_pos(p, &self.blocks);
+		let v = field.check_valid_pos(p, &self.piece.blocks);
 
 		if v {
 			self.pos = p;

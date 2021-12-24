@@ -30,6 +30,7 @@ fn main()
 	let window = video_subsystem
 		.window("Tetris", 800, 600)
 		.position_centered()
+        //.resizable() // Simpler to debug
 		.build()
 		.unwrap();
 
