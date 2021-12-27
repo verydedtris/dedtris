@@ -12,17 +12,17 @@ mod game;
 
 fn main()
 {
-    // Load resources
+	// Load resources
 
 	let theme = match game::Theme::load(Path::new("test.xml")) {
-        Ok(o) => o,
-        Err(e) => {
-            println!("Couldn't load theme: {}", e);
-            return;
-        }
-    };
+		Ok(o) => o,
+		Err(e) => {
+			println!("Couldn't load theme: {}", e);
+			return;
+		}
+	};
 
-    // Init SDL2 and its window system
+	// Init SDL2 and its window system
 
 	let sdl_context = sdl2::init().unwrap();
 	let video_subsystem = sdl_context.video().unwrap();
@@ -30,7 +30,7 @@ fn main()
 	let window = video_subsystem
 		.window("Tetris", 800, 600)
 		.position_centered()
-        //.resizable() // Simpler to debug
+		//.resizable() // Simpler to debug
 		.build()
 		.unwrap();
 
@@ -40,11 +40,17 @@ fn main()
 	canvas.clear();
 	canvas.present();
 
-    // Init Game
+	// Init Game
 
-	let mut game = game::Instance::init(canvas.output_size().unwrap(), theme);
+	let mut game = match game::Instance::init(canvas.output_size().unwrap(), theme) {
+		Ok(g) => g,
+		Err(e) => {
+			println!("Couldn't launch game: {}", e);
+			return;
+		}
+	};
 
-    // Event Loop
+	// Event Loop
 
 	let mut event_pump = sdl_context.event_pump().unwrap();
 	let mut i = 0;

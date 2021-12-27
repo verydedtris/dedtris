@@ -67,28 +67,23 @@ impl Field
 	{
 		let lines = self.lines_list();
 
-		println!("Filled lines: {:?}", lines);
-
 		let mut removed = 0;
 		for i in 0..self.blocks.len() {
 			let i = i - removed;
 
 			if let Some(ii) = lines.iter().position(|l| *l >= self.blocks[i].1) {
-				println!("Line: {}", lines[ii]);
-
 				if self.blocks[i].1 == lines[ii] as i32 {
 					self.blocks.swap_remove(i);
 					self.colors.swap_remove(i);
 					removed += 1;
 				} else {
 					let shift = lines.len() - ii;
-					println!("Shift: {}", shift);
 					self.blocks[i].1 += shift as i32;
 				}
 			}
 		}
 
-        !lines.is_empty()
+		!lines.is_empty()
 	}
 
 	pub fn check_valid_pos(&self, pos: (i32, i32), blocks: &[(i32, i32)]) -> bool

@@ -10,7 +10,6 @@ use self::field::Field;
 use self::gen::Pieces;
 use self::pieces::PlayerPiece;
 
-use self::size::ResizePattern;
 pub use self::theme::Theme;
 
 mod drawer;
@@ -19,6 +18,37 @@ mod gen;
 mod pieces;
 mod size;
 mod theme;
+
+// -----------------------------------------------------------------------------
+// Error
+// -----------------------------------------------------------------------------
+
+pub struct GameError
+{
+	err: String,
+}
+
+impl std::fmt::Display for GameError
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+	{
+		write!(f, "{}", self.err)
+	}
+}
+
+impl From<&str> for GameError
+{
+	fn from(err: &str) -> Self
+	{
+		GameError {
+			err: err.to_string(),
+		}
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Game
+// -----------------------------------------------------------------------------
 
 fn color_to_u32(c: Color) -> u32
 {
@@ -39,31 +69,32 @@ pub struct Instance
 {
 	field: Field,
 	pieces: Pieces,
-	piece: Option<PlayerPiece>,
+	piece: PlayerPiece,
 
 	draw_cache: DrawCache,
 }
 
 impl Instance
 {
-	pub fn init(dim: (u32, u32), t: Theme) -> Self
+	pub fn init(dim: (u32, u32), t: Theme) -> Result<Self, GameError>
 	{
-		let mut inst = Instance {
-			field: Field::init(t.field_dim),
-			pieces: Pieces::init(t.patterns),
-			piece: None,
-			draw_cache: DrawCache::init(),
+		let field = Field::init(t.field_dim);
+		let mut pieces = Pieces::init(t.patterns);
+		let mut draw_cache = DrawCache::init();
+
+		set_layout_size(&mut draw_cache, &field, dim);
+
+		let piece = match spawn_piece(&mut draw_cache, &mut pieces, &field) {
+			Some(x) => x,
+			_ => return Err(GameError::from("Piece couldn't be spawned in.")),
 		};
 
-		let r = inst.new_resize(dim);
-		inst.draw_cache.set_size(r);
-
-		inst.piece = inst.spawn_piece();
-		if let Some(p) = &inst.piece {
-			inst.draw_cache.set_player_blocks(p.pos, &p.piece.blocks, &p.piece.colors);
-		}
-
-		inst
+		Ok(Self {
+			field,
+			pieces,
+			piece,
+			draw_cache,
+		})
 	}
 
 	pub fn handle_event(&mut self, event: &Event)
@@ -71,67 +102,64 @@ impl Instance
 		match event {
 			Event::KeyDown {
 				keycode: Some(x), ..
-			} => {
-				if let Some(p) = &mut self.piece {
-					match x {
-						Keycode::Left => {
-							println!("Moved to left");
-							p.move_piece(&self.field, Direction::LEFT);
-							self.draw_cache.set_player_blocks(p.pos, &p.piece.blocks, &p.piece.colors);
-						}
+			} => match x {
+				Keycode::Left => {
+					move_piece(
+						&mut self.piece,
+						&mut self.draw_cache,
+						&self.field,
+						Direction::LEFT,
+					);
+				}
 
-						Keycode::Right => {
-							println!("Moved to right");
-							p.move_piece(&self.field, Direction::RIGHT);
-							self.draw_cache.set_player_blocks(p.pos, &p.piece.blocks, &p.piece.colors);
-						}
+				Keycode::Right => {
+					move_piece(
+						&mut self.piece,
+						&mut self.draw_cache,
+						&self.field,
+						Direction::RIGHT,
+					);
+				}
 
-						Keycode::Down => {
-							println!("Moved down");
+				Keycode::Down => {
+					let respawn = move_piece(
+						&mut self.piece,
+						&mut self.draw_cache,
+						&self.field,
+						Direction::DOWN,
+					);
 
-							if p.move_piece(&self.field, Direction::DOWN) {
-								self.draw_cache.set_player_blocks(p.pos, &p.piece.blocks, &p.piece.colors);
-								return;
-							}
+					if respawn {
+						return;
+					}
 
-							let piece = p.delta_blocks();
-							self.field.add_pieces(&piece.0, &piece.1);
+					place_piece(
+						std::mem::take(&mut self.piece),
+						&mut self.field,
+						&mut self.draw_cache,
+					);
 
-							if self.field.clear_lines() {
-								self.draw_cache.clear_field_blocks();
-							}
-
-							self.draw_cache
-								.set_field_blocks(&self.field.blocks, &self.field.colors);
-
-							let selected = self.pieces.bag_piece();
-							let new_p = PlayerPiece::new(&self.field, (0, 0), selected);
-
-							if new_p.is_none() {
-								println!("Game Over.");
-							}
-
-							*p = new_p.unwrap();
-							self.draw_cache.set_player_blocks(p.pos, &p.piece.blocks, &p.piece.colors);
-						}
-
-						Keycode::Up => {
-							println!("Rotated");
-							p.rotate(&self.field);
-							self.draw_cache.set_player_blocks(p.pos, &p.piece.blocks, &p.piece.colors);
-						}
-
-						_ => (),
+					if let Some(p) =
+						spawn_piece(&mut self.draw_cache, &mut self.pieces, &self.field)
+					{
+						self.piece = p;
+					} else {
+						println!("Game Over.");
 					}
 				}
-			}
+
+				Keycode::Up => {
+					rotate(&mut self.piece, &mut self.draw_cache, &self.field);
+				}
+
+				_ => (),
+			},
 
 			Event::Window {
 				win_event: WindowEvent::Resized(w, h),
 				..
 			} => {
-				let p = size::new_resize((*w as u32, *h as u32), self.field.field_dim);
-				self.draw_cache.set_size(p);
+				set_layout_size(&mut self.draw_cache, &self.field, (*w as u32, *h as u32));
 			}
 
 			_ => (),
@@ -140,8 +168,8 @@ impl Instance
 
 	pub fn draw(&self, canvas: &mut WindowCanvas)
 	{
-		self.draw_cache.draw_field(canvas);
-		self.draw_cache.draw_player(canvas);
+		drawer::draw_field(&self.draw_cache, canvas);
+		drawer::draw_player(&self.draw_cache, canvas);
 	}
 }
 
@@ -149,16 +177,52 @@ impl Instance
 // Game actions
 // -----------------------------------------------------------------------------
 
-impl Instance
+fn spawn_piece(cache: &mut DrawCache, pieces: &mut Pieces, field: &Field) -> Option<PlayerPiece>
 {
-	fn new_resize(&self, win_target: (u32, u32)) -> ResizePattern
-	{
-		size::new_resize(win_target, self.field.field_dim)
+	let selected = gen::get_next_piece(pieces);
+	let piece = PlayerPiece::new(&field, (0, 0), selected)?;
+
+	drawer::set_player_blocks(cache, piece.pos, &piece.piece.blocks, &piece.piece.colors);
+
+	Some(piece)
+}
+
+fn move_piece(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field, d: Direction) -> bool
+{
+	let b = pieces::move_piece(p, &field, d);
+
+	if b {
+		drawer::set_player_blocks(cache, p.pos, &p.piece.blocks, &p.piece.colors);
 	}
 
-	fn spawn_piece(&mut self) -> Option<PlayerPiece>
-	{
-		let selected = self.pieces.bag_piece();
-		PlayerPiece::new(&self.field, (0, 0), selected)
+	b
+}
+
+fn rotate(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field) -> bool
+{
+	let b = pieces::rotate(p, &field);
+
+	if b {
+		drawer::set_player_blocks(cache, p.pos, &p.piece.blocks, &p.piece.colors);
 	}
+
+	b
+}
+
+fn place_piece(p: PlayerPiece, field: &mut Field, cache: &mut DrawCache)
+{
+	let blocks = p.piece.move_delta(p.pos);
+	let colors = p.piece.colors;
+
+	field.add_pieces(&blocks, &colors);
+
+	field.clear_lines();
+
+	drawer::set_field_blocks(cache, &field.blocks, &field.colors);
+}
+
+fn set_layout_size(cache: &mut DrawCache, field: &Field, dim: (u32, u32))
+{
+	let r = size::new_resize(dim, field.field_dim);
+	drawer::set_size(cache, r);
 }

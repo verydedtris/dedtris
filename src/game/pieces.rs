@@ -1,5 +1,3 @@
-use sdl2::pixels::Color;
-
 use super::field::Field;
 use super::gen;
 
@@ -14,6 +12,7 @@ pub enum Direction
 	DOWN,
 }
 
+#[derive(Default)]
 pub struct PlayerPiece
 {
 	pub pos: (i32, i32),
@@ -30,44 +29,33 @@ impl PlayerPiece
 			None
 		}
 	}
-
-	pub fn delta_blocks(&mut self) -> (Vec<(i32, i32)>, Vec<Color>)
-	{
-		(
-			self.piece.move_delta(self.pos),
-			std::mem::take(&mut self.piece.colors),
-		)
-	}
 }
 
-impl PlayerPiece
+pub fn rotate(pp: &mut PlayerPiece, field: &Field) -> bool
 {
-	pub fn rotate(&mut self, field: &Field) -> bool
-	{
-		let p = self.piece.rotate();
-		let v = field.check_valid_pos(self.pos, &p);
+	let p = pp.piece.rotate();
+	let v = field.check_valid_pos(pp.pos, &p);
 
-		if v {
-			self.piece.blocks = p;
-		}
-
-		v
+	if v {
+		pp.piece.blocks = p;
 	}
 
-	pub fn move_piece(&mut self, field: &Field, d: Direction) -> bool
-	{
-		let p = match d {
-			Direction::LEFT => (self.pos.0 - 1, self.pos.1),
-			Direction::RIGHT => (self.pos.0 + 1, self.pos.1),
-			Direction::DOWN => (self.pos.0, self.pos.1 + 1),
-		};
+	v
+}
 
-		let v = field.check_valid_pos(p, &self.piece.blocks);
+pub fn move_piece(pp: &mut PlayerPiece, field: &Field, d: Direction) -> bool
+{
+	let p = match d {
+		Direction::LEFT => (pp.pos.0 - 1, pp.pos.1),
+		Direction::RIGHT => (pp.pos.0 + 1, pp.pos.1),
+		Direction::DOWN => (pp.pos.0, pp.pos.1 + 1),
+	};
 
-		if v {
-			self.pos = p;
-		}
+	let v = field.check_valid_pos(p, &pp.piece.blocks);
 
-		v
+	if v {
+		pp.pos = p;
 	}
+
+	v
 }

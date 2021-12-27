@@ -88,42 +88,43 @@ impl Pieces
 			choice_left,
 		}
 	}
+}
 
-	pub fn bag_piece(&mut self) -> Piece
-	{
-		if self.choice_left.is_empty() {
-			self.choice_left = respawn_bag(self.templates.len(), &mut self.rng);
+pub fn get_next_piece(ps: &mut Pieces) -> Piece
+{
+	if ps.choice_left.is_empty() {
+		ps.choice_left = respawn_bag(ps.templates.len(), &mut ps.rng);
+	}
+
+	debug_assert!(!ps.choice_left.is_empty());
+
+	let i = ps.rng.gen_range(0..ps.choice_left.len());
+	let p = spawn_piece_idx(&ps, ps.choice_left[i]);
+
+	ps.choice_left.remove(i);
+	p
+}
+
+pub fn spawn_piece(pattern: &Pattern) -> Piece
+{
+	let mut r = Vec::with_capacity(pattern.colors.len());
+
+	for i in 0..pattern.dim * pattern.dim {
+		if pattern.template[i as usize] {
+			r.push(((i % pattern.dim) as i32, (i / pattern.dim) as i32));
 		}
-
-		let i = self.rng.gen_range(0..self.choice_left.len());
-		let p = self.spawn_piece_idx(self.choice_left[i]);
-
-		self.choice_left.remove(i);
-		p
 	}
 
-	pub fn spawn_piece(&self, pattern: &Pattern) -> Piece
-	{
-		let mut r = Vec::new();
-		r.reserve(pattern.colors.len());
+	debug_assert_eq!(pattern.colors.len(), r.len());
 
-		for i in 0..pattern.dim * pattern.dim {
-			if pattern.template[i as usize] {
-				r.push(((i % pattern.dim) as i32, (i / pattern.dim) as i32));
-			}
-		}
+	Piece::new(pattern.dim, pattern.colors.clone(), r)
+}
 
-		debug_assert_eq!(pattern.colors.len(), r.len());
+pub fn spawn_piece_idx(ps: &Pieces, temp_idx: usize) -> Piece
+{
+	debug_assert!(ps.templates.len() > temp_idx);
 
-		Piece::new(pattern.dim, pattern.colors.clone(), r)
-	}
-
-	pub fn spawn_piece_idx(&self, temp_idx: usize) -> Piece
-	{
-		debug_assert!(self.templates.len() > temp_idx);
-
-		self.spawn_piece(&self.templates[temp_idx])
-	}
+	spawn_piece(&ps.templates[temp_idx])
 }
 
 fn respawn_bag(size: usize, rng: &mut ThreadRng) -> Vec<usize>
