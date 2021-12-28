@@ -48,6 +48,11 @@ fn project(pos: (i32, i32), p: &gen::Piece, field: &Field) -> i32
 	y - 1
 }
 
+pub fn drop(pp: &mut PlayerPiece)
+{
+    pp.pos.1 = pp.projection;
+}
+
 pub fn rotate(pp: &mut PlayerPiece, field: &Field) -> bool
 {
 	let p = pp.piece.rotate();

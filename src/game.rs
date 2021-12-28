@@ -133,23 +133,26 @@ impl Instance
 						return;
 					}
 
-					place_piece(
-						std::mem::take(&mut self.piece),
+					respawn_piece(
+						&mut self.piece,
 						&mut self.field,
+						&mut self.pieces,
 						&mut self.draw_cache,
 					);
-
-					if let Some(p) =
-						spawn_piece(&mut self.draw_cache, &mut self.pieces, &self.field)
-					{
-						self.piece = p;
-					} else {
-						println!("Game Over.");
-					}
 				}
 
 				Keycode::Up => {
 					rotate(&mut self.piece, &mut self.draw_cache, &self.field);
+				}
+
+				Keycode::Space => {
+					drop_player(&mut self.piece, &mut self.draw_cache);
+					respawn_piece(
+						&mut self.piece,
+						&mut self.field,
+						&mut self.pieces,
+						&mut self.draw_cache,
+					);
 				}
 
 				_ => (),
@@ -213,6 +216,23 @@ fn rotate(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field) -> bool
 	}
 
 	b
+}
+
+fn drop_player(p: &mut PlayerPiece, cache: &mut DrawCache)
+{
+	pieces::drop(p);
+	drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
+}
+
+fn respawn_piece(p: &mut PlayerPiece, field: &mut Field, pieces: &mut Pieces, cache: &mut DrawCache)
+{
+	place_piece(std::mem::take(p), field, cache);
+
+	if let Some(pp) = spawn_piece(cache, pieces, field) {
+		*p = pp;
+	} else {
+		println!("Game Over.");
+	}
 }
 
 fn place_piece(p: PlayerPiece, field: &mut Field, cache: &mut DrawCache)
