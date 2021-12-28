@@ -182,7 +182,13 @@ fn spawn_piece(cache: &mut DrawCache, pieces: &mut Pieces, field: &Field) -> Opt
 	let selected = gen::get_next_piece(pieces);
 	let piece = PlayerPiece::new(&field, (0, 0), selected)?;
 
-	drawer::set_player_blocks(cache, piece.pos, &piece.piece.blocks, &piece.piece.colors);
+	drawer::set_player_blocks(
+		cache,
+		piece.pos,
+		piece.projection,
+		&piece.piece.blocks,
+		&piece.piece.colors,
+	);
 
 	Some(piece)
 }
@@ -192,7 +198,7 @@ fn move_piece(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field, d: Dire
 	let b = pieces::move_piece(p, &field, d);
 
 	if b {
-		drawer::set_player_blocks(cache, p.pos, &p.piece.blocks, &p.piece.colors);
+		drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
 	}
 
 	b
@@ -203,7 +209,7 @@ fn rotate(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field) -> bool
 	let b = pieces::rotate(p, &field);
 
 	if b {
-		drawer::set_player_blocks(cache, p.pos, &p.piece.blocks, &p.piece.colors);
+		drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
 	}
 
 	b
@@ -214,9 +220,8 @@ fn place_piece(p: PlayerPiece, field: &mut Field, cache: &mut DrawCache)
 	let blocks = p.piece.move_delta(p.pos);
 	let colors = p.piece.colors;
 
-	field.add_pieces(&blocks, &colors);
-
-	field.clear_lines();
+	field::add_pieces(field, &blocks, &colors);
+	field::clear_lines(field);
 
 	drawer::set_field_blocks(cache, &field.blocks, &field.colors);
 }

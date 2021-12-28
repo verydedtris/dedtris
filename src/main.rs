@@ -36,6 +36,8 @@ fn main()
 
 	let mut canvas = window.into_canvas().build().unwrap();
 
+    canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+
 	canvas.set_draw_color(Color::RGB(0, 255, 255));
 	canvas.clear();
 	canvas.present();

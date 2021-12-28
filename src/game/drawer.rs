@@ -13,7 +13,8 @@ pub struct DrawCache
 	pub field_idx: Vec<(Color, usize)>,
 	pub field_blocks: Vec<Rect>,
 
-	pub player_blocks: Vec<(Color, Rect)>,
+	pub player_colors: Vec<Color>,
+	pub player_blocks: Vec<Rect>,
 }
 
 impl DrawCache
@@ -25,6 +26,7 @@ impl DrawCache
 			field_rect: Rect::new(0, 0, 0, 0),
 			field_idx: Vec::new(),
 			field_blocks: Vec::new(),
+			player_colors: Vec::new(),
 			player_blocks: Vec::new(),
 		}
 	}
@@ -79,28 +81,36 @@ pub fn set_field_blocks(cache: &mut DrawCache, blocks: &[(i32, i32)], colors: &[
 pub fn set_player_blocks(
 	cache: &mut DrawCache,
 	pos: (i32, i32),
+	projection: i32,
 	blocks: &[(i32, i32)],
 	colors: &[Color],
 )
 {
 	debug_assert_eq!(blocks.len(), colors.len());
 
+	cache.player_colors = colors.to_owned();
 	cache.player_blocks = blocks
 		.iter()
-		.zip(colors.iter())
-		.map(|(b, c)| {
+		.map(|b| {
 			let bs = cache.block_size;
 			let xy = cache.field_rect.top_left();
-			(
-				*c,
-				Rect::new(
-					xy.x + (b.0 + pos.0) * bs as i32,
-					xy.y + (b.1 + pos.1) * bs as i32,
-					bs,
-					bs,
-				),
+			Rect::new(
+				xy.x + (b.0 + pos.0) * bs as i32,
+				xy.y + (b.1 + projection) * bs as i32,
+				bs,
+				bs,
 			)
 		})
+		.chain(blocks.iter().map(|b| {
+			let bs = cache.block_size;
+			let xy = cache.field_rect.top_left();
+			Rect::new(
+				xy.x + (b.0 + pos.0) * bs as i32,
+				xy.y + (b.1 + pos.1) * bs as i32,
+				bs,
+				bs,
+			)
+		}))
 		.collect();
 }
 
@@ -127,8 +137,16 @@ pub fn draw_field(cache: &DrawCache, canvas: &mut WindowCanvas)
 
 pub fn draw_player(cache: &DrawCache, canvas: &mut WindowCanvas)
 {
-	for (c, r) in &cache.player_blocks {
+    debug_assert_eq!(cache.player_colors.len() * 2, cache.player_blocks.len());
+
+    for (c, b) in cache.player_colors.iter().zip(&cache.player_blocks) {
+        let c = Color::RGBA(c.r, c.g, c.b, c.a / 2);
+		canvas.set_draw_color(c);
+		canvas.fill_rect(*b).unwrap();
+    }
+
+    for (c, b) in cache.player_colors.iter().zip(cache.player_blocks[cache.player_colors.len()..].iter()) {
 		canvas.set_draw_color(*c);
-		canvas.fill_rect(*r).unwrap();
-	}
+		canvas.fill_rect(*b).unwrap();
+    }
 }
