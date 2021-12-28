@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use bitvec::prelude::BitVec;
+use log::debug;
 use quick_xml::events::{BytesStart, BytesText, Event};
 use sdl2::pixels::Color;
 
@@ -103,14 +104,14 @@ impl Theme
 				Ok(Event::Start(ref e)) => {
 					state = match state {
 						XMLStates::Theme => {
-							println!("Found Theme tag");
+							debug!("Found Theme tag");
 							let (s, d) = parse_root(&mut reader, &e)?;
 							dim = Some(d);
 							s
 						}
 
 						XMLStates::Piece => {
-							println!("Found Piece tag");
+							debug!("Found Piece tag");
 							parse_piece(&mut reader, &e)?.unwrap_or(state)
 						}
 
@@ -121,11 +122,9 @@ impl Theme
 				}
 
 				Ok(Event::Text(ref e)) => {
-					println!("{:?}", e.unescape_and_decode(&reader)?);
-
 					state = match state {
 						XMLStates::PieceBody(p) => {
-							println!("Found Piece body");
+							debug!("Found Piece body");
 							let (s, p) = parse_piece_body(&mut reader, &e, p)?;
 							patterns.push(p);
 							s

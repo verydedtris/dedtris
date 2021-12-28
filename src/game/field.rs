@@ -61,7 +61,7 @@ pub fn lines_list(field: &Field) -> Vec<i32>
 		.collect()
 }
 
-pub fn clear_lines(field: &mut Field) -> bool
+pub fn clear_lines(field: &mut Field) -> Vec<i32>
 {
 	let lines = lines_list(field);
 
@@ -81,7 +81,7 @@ pub fn clear_lines(field: &mut Field) -> bool
 		}
 	}
 
-	!lines.is_empty()
+    lines
 }
 
 pub fn check_valid_pos(field: &Field, pos: (i32, i32), blocks: &[(i32, i32)]) -> bool

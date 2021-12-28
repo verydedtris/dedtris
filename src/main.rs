@@ -1,6 +1,8 @@
 extern crate bitvec;
+extern crate log;
 extern crate sdl2;
 
+use log::{error, info};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -10,33 +12,46 @@ use std::time::Duration;
 mod file;
 mod game;
 
+macro_rules! init {
+    ($system:expr, $msg:expr) => {
+        match $system {
+            Ok(v) => v,
+            Err(e) => { error!($msg, e); return; },
+        }
+    }
+}
+
 fn main()
 {
-	// Load resources
+	// Init Logger
 
-	let theme = match game::Theme::load(Path::new("test.xml")) {
-		Ok(o) => o,
-		Err(e) => {
-			println!("Couldn't load theme: {}", e);
-			return;
-		}
-	};
+    println!("Initializing Logger.");
+	env_logger::init();
+
+	// Load theme
+
+    let path = Path::new("test.xml");
+
+	info!("Loading resource {}.", path.to_str().unwrap());
+	let theme = init!(game::Theme::load(path), "Couldn't load theme: {}");
 
 	// Init SDL2 and its window system
 
-	let sdl_context = sdl2::init().unwrap();
-	let video_subsystem = sdl_context.video().unwrap();
+    info!("Initializing SDL2 and its subsystems.");
+	let sdl_context = init!(sdl2::init(), "Couldn't initialize SDL2: {}");
+	let video_subsystem = init!(sdl_context.video(), "Couldn't initialize SDL2 videosubsystem: {}");
 
-	let window = video_subsystem
+    info!("Constructing window.");
+	let window = init!(video_subsystem
 		.window("Tetris", 800, 600)
 		.position_centered()
 		//.resizable() // Simpler to debug
-		.build()
-		.unwrap();
+		.build(), "Couldn't create window: {}");
 
-	let mut canvas = window.into_canvas().build().unwrap();
+    info!("Constructing renderer for window.");
+	let mut canvas = init!(window.into_canvas().build(), "Couldn't construct renderer: {}");
 
-    canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+	canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
 
 	canvas.set_draw_color(Color::RGB(0, 255, 255));
 	canvas.clear();
@@ -44,13 +59,8 @@ fn main()
 
 	// Init Game
 
-	let mut game = match game::Instance::init(canvas.output_size().unwrap(), theme) {
-		Ok(g) => g,
-		Err(e) => {
-			println!("Couldn't launch game: {}", e);
-			return;
-		}
-	};
+    info!("Initializing tetris game.");
+	let mut game = init!(game::Instance::init(canvas.output_size().unwrap(), theme), "Couldn't launch game: {}");
 
 	// Event Loop
 

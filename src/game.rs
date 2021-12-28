@@ -1,3 +1,4 @@
+use log::info;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -182,8 +183,12 @@ impl Instance
 
 fn spawn_piece(cache: &mut DrawCache, pieces: &mut Pieces, field: &Field) -> Option<PlayerPiece>
 {
+    let location = (0, 0);
 	let selected = gen::get_next_piece(pieces);
-	let piece = PlayerPiece::new(&field, (0, 0), selected)?;
+
+    info!("Spawned piece at {:?}: {:?}", location, selected.blocks);
+
+	let piece = PlayerPiece::new(&field, location, selected)?;
 
 	drawer::set_player_blocks(
 		cache,
@@ -202,6 +207,7 @@ fn move_piece(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field, d: Dire
 
 	if b {
 		drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
+        info!("Moved piece: {:?}", p.pos);
 	}
 
 	b
@@ -213,6 +219,7 @@ fn rotate(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field) -> bool
 
 	if b {
 		drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
+        info!("Rotated piece.");
 	}
 
 	b
@@ -222,6 +229,7 @@ fn drop_player(p: &mut PlayerPiece, cache: &mut DrawCache)
 {
 	pieces::drop(p);
 	drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
+    info!("Dropped piece: {:?}", p.pos);
 }
 
 fn respawn_piece(p: &mut PlayerPiece, field: &mut Field, pieces: &mut Pieces, cache: &mut DrawCache)
@@ -241,7 +249,9 @@ fn place_piece(p: PlayerPiece, field: &mut Field, cache: &mut DrawCache)
 	let colors = p.piece.colors;
 
 	field::add_pieces(field, &blocks, &colors);
-	field::clear_lines(field);
+	let l = field::clear_lines(field);
+
+    info!("Lines removed: {:?}", l);
 
 	drawer::set_field_blocks(cache, &field.blocks, &field.colors);
 }
