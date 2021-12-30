@@ -7,14 +7,14 @@ use super::size::ResizePattern;
 
 pub struct DrawCache
 {
-	pub block_size: u32,
+	pub bs: u32,
 
-	pub field_rect: Rect,
-	pub field_idx: Vec<(Color, usize)>,
-	pub field_blocks: Vec<Rect>,
+	pub fr: Rect,
+	pub fis: Vec<(Color, usize)>,
+	pub fbs: Vec<Rect>,
 
-	pub player_colors: Vec<Color>,
-	pub player_blocks: Vec<Rect>,
+	pub pcs: Vec<Color>,
+	pub pbs: Vec<Rect>,
 }
 
 impl DrawCache
@@ -22,57 +22,52 @@ impl DrawCache
 	pub fn init() -> Self
 	{
 		Self {
-			block_size: 0,
-			field_rect: Rect::new(0, 0, 0, 0),
-			field_idx: Vec::new(),
-			field_blocks: Vec::new(),
-			player_colors: Vec::new(),
-			player_blocks: Vec::new(),
+			bs: 0,
+			fr: Rect::new(0, 0, 0, 0),
+			fis: Vec::new(),
+			fbs: Vec::new(),
+			pcs: Vec::new(),
+			pbs: Vec::new(),
 		}
 	}
 }
 
 pub fn set_size(cache: &mut DrawCache, p: ResizePattern)
 {
-	cache.block_size = p.block_size;
-	cache.field_rect = p.field_rect;
+	cache.bs = p.block_size;
+	cache.fr = p.field_rect;
 }
 
 pub fn clear_field_blocks(cache: &mut DrawCache)
 {
-	cache.field_idx.clear();
-	cache.field_blocks.clear();
+	cache.fis.clear();
+	cache.fbs.clear();
 }
 
 pub fn set_field_blocks(cache: &mut DrawCache, blocks: &[(i32, i32)], colors: &[Color])
 {
 	debug_assert!(blocks.len() == colors.len());
 
-	// Add blocks
+	cache.fbs = Vec::with_capacity(blocks.len());
+	cache.fis = Vec::new();
 
-	cache.field_blocks = blocks
-		.iter()
-		.map(|b| {
-			let bs = cache.block_size;
-			let xy = cache.field_rect.top_left();
-			Rect::new(xy.x + b.0 * bs as i32, xy.y + b.1 * bs as i32, bs, bs)
-		})
-		.collect();
+	let mut cis: Vec<usize> = (0..colors.len()).collect();
+	cis.sort_unstable_by_key(|x| color_to_u32(colors[*x]));
 
-	// Add colors
-
-	cache.field_idx = Vec::with_capacity(blocks.len());
-
-	let mut color_idxs: Vec<usize> = (0..colors.len()).collect();
-	color_idxs.sort_unstable_by_key(|x| color_to_u32(colors[*x]));
-
-	if let (Some(&first), Some(&last)) = (color_idxs.first(), color_idxs.last()) {
+	if let (Some(&first), Some(&last)) = (cis.first(), cis.last()) {
 		let mut prev = first;
 
-		for i in &color_idxs {
-			if colors[prev] != colors[*i] || *i == last {
-				cache.field_idx.push((colors[prev], *i));
-				prev = *i;
+		for (i, idx) in cis.iter().enumerate() {
+			cache.fbs.push(Rect::new(
+				cache.fr.x + blocks[*idx].0 * cache.bs as i32,
+				cache.fr.y + blocks[*idx].1 * cache.bs as i32,
+				cache.bs,
+				cache.bs,
+			));
+
+			if colors[prev] != colors[*idx] || *idx == last {
+				cache.fis.push((colors[prev], i));
+				prev = *idx;
 			}
 		}
 	}
@@ -88,12 +83,12 @@ pub fn set_player_blocks(
 {
 	debug_assert_eq!(blocks.len(), colors.len());
 
-	cache.player_colors = colors.to_owned();
-	cache.player_blocks = blocks
+	cache.pcs = colors.to_owned();
+	cache.pbs = blocks
 		.iter()
 		.map(|b| {
-			let bs = cache.block_size;
-			let xy = cache.field_rect.top_left();
+			let bs = cache.bs;
+			let xy = cache.fr.top_left();
 			Rect::new(
 				xy.x + (b.0 + pos.0) * bs as i32,
 				xy.y + (b.1 + projection) * bs as i32,
@@ -102,8 +97,8 @@ pub fn set_player_blocks(
 			)
 		})
 		.chain(blocks.iter().map(|b| {
-			let bs = cache.block_size;
-			let xy = cache.field_rect.top_left();
+			let bs = cache.bs;
+			let xy = cache.fr.top_left();
 			Rect::new(
 				xy.x + (b.0 + pos.0) * bs as i32,
 				xy.y + (b.1 + pos.1) * bs as i32,
@@ -119,16 +114,16 @@ pub fn draw_field(cache: &DrawCache, canvas: &mut WindowCanvas)
 	// Draw Outline
 
 	canvas.set_draw_color(Color::RGB(0, 0, 0));
-	canvas.fill_rect(cache.field_rect).unwrap();
+	canvas.fill_rect(cache.fr).unwrap();
 
 	// Draw Blocks
 
 	let mut prev = 0;
 
-	for idx in &cache.field_idx {
+	for idx in &cache.fis {
 		canvas.set_draw_color(idx.0);
 
-		let s = &cache.field_blocks[prev..=idx.1];
+		let s = &cache.fbs[prev..=idx.1];
 		canvas.fill_rects(s).unwrap();
 
 		prev = idx.1;
@@ -137,16 +132,16 @@ pub fn draw_field(cache: &DrawCache, canvas: &mut WindowCanvas)
 
 pub fn draw_player(cache: &DrawCache, canvas: &mut WindowCanvas)
 {
-    debug_assert_eq!(cache.player_colors.len() * 2, cache.player_blocks.len());
+	debug_assert_eq!(cache.pcs.len() * 2, cache.pbs.len());
 
-    for (c, b) in cache.player_colors.iter().zip(&cache.player_blocks) {
-        let c = Color::RGBA(c.r, c.g, c.b, c.a / 2);
+	for (c, b) in cache.pcs.iter().zip(&cache.pbs) {
+		let c = Color::RGBA(c.r, c.g, c.b, c.a / 2);
 		canvas.set_draw_color(c);
 		canvas.fill_rect(*b).unwrap();
-    }
+	}
 
-    for (c, b) in cache.player_colors.iter().zip(cache.player_blocks[cache.player_colors.len()..].iter()) {
+	for (c, b) in cache.pcs.iter().zip(cache.pbs[cache.pcs.len()..].iter()) {
 		canvas.set_draw_color(*c);
 		canvas.fill_rect(*b).unwrap();
-    }
+	}
 }

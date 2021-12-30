@@ -1,5 +1,6 @@
 extern crate bitvec;
 extern crate log;
+extern crate rlua;
 extern crate sdl2;
 
 use log::{error, info};
@@ -11,45 +12,77 @@ use std::time::Duration;
 
 mod file;
 mod game;
+mod lua;
 
 macro_rules! init {
-    ($system:expr, $msg:expr) => {
-        match $system {
-            Ok(v) => v,
-            Err(e) => { error!($msg, e); return; },
-        }
-    }
+	($system:expr, $msg:expr) => {
+		match $system {
+			Ok(v) => v,
+			Err(e) => {
+				error!($msg, e);
+				return;
+			}
+		}
+	};
+
+	($system:expr) => {
+		match $system {
+			Ok(v) => v,
+			Err(_) => {
+				return;
+			}
+		}
+	};
 }
 
 fn main()
 {
 	// Init Logger
 
-    println!("Initializing Logger.");
 	env_logger::init();
+
+	// Init Lua runtime
+
+    let path = Path::new("test.lua");
+
+    info!("Initializing Lua plugin enviroment and loading {}.", path.display());
+    let lua = init!(lua::Lua::new(&path));
 
 	// Load theme
 
-    let path = Path::new("test.xml");
+	info!("Loading resource {}.", path.display());
+	let theme = if let Ok(o) = lua.get_theme() {
+        o
+    } else {
+        info!("Exitting.");
+        return;
+    };
 
-	info!("Loading resource {}.", path.to_str().unwrap());
-	let theme = init!(game::Theme::load(path), "Couldn't load theme: {}");
 
 	// Init SDL2 and its window system
 
-    info!("Initializing SDL2 and its subsystems.");
+	info!("Initializing SDL2 and its subsystems.");
 	let sdl_context = init!(sdl2::init(), "Couldn't initialize SDL2: {}");
-	let video_subsystem = init!(sdl_context.video(), "Couldn't initialize SDL2 videosubsystem: {}");
+	let video_subsystem = init!(
+		sdl_context.video(),
+		"Couldn't initialize SDL2 videosubsystem: {}"
+	);
 
-    info!("Constructing window.");
-	let window = init!(video_subsystem
-		.window("Tetris", 800, 600)
-		.position_centered()
-		//.resizable() // Simpler to debug
-		.build(), "Couldn't create window: {}");
+	info!("Constructing window.");
+	let window = init!(
+		video_subsystem
+			.window("Tetris", 800, 600)
+			.position_centered()
+			//.resizable() // Simpler to debug
+			.build(),
+		"Couldn't create window: {}"
+	);
 
-    info!("Constructing renderer for window.");
-	let mut canvas = init!(window.into_canvas().build(), "Couldn't construct renderer: {}");
+	info!("Constructing renderer for window.");
+	let mut canvas = init!(
+		window.into_canvas().build(),
+		"Couldn't construct renderer: {}"
+	);
 
 	canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
 
@@ -59,8 +92,11 @@ fn main()
 
 	// Init Game
 
-    info!("Initializing tetris game.");
-	let mut game = init!(game::Instance::init(canvas.output_size().unwrap(), theme), "Couldn't launch game: {}");
+	info!("Initializing tetris game.");
+	let mut game = init!(
+		game::Instance::init(canvas.output_size().unwrap(), theme),
+		"Couldn't launch game: {}"
+	);
 
 	// Event Loop
 

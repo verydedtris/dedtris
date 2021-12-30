@@ -4,7 +4,7 @@ use rand::seq::SliceRandom;
 use rand::Rng;
 use sdl2::pixels::Color;
 
-use super::theme;
+use crate::lua;
 
 // -----------------------------------------------------------------------------
 // Piece
@@ -76,7 +76,7 @@ pub struct Pieces
 
 impl Pieces
 {
-	pub fn init(ps: Vec<theme::Pattern>) -> Self
+	pub fn init(ps: Vec<lua::Pattern>) -> Self
 	{
 		let mut rng = rand::thread_rng();
 		let choice_left = respawn_bag(ps.len(), &mut rng);

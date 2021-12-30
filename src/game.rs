@@ -11,14 +11,13 @@ use self::field::Field;
 use self::gen::Pieces;
 use self::pieces::PlayerPiece;
 
-pub use self::theme::Theme;
+use crate::lua;
 
 mod drawer;
 mod field;
 mod gen;
 mod pieces;
 mod size;
-mod theme;
 
 // -----------------------------------------------------------------------------
 // Error
@@ -77,7 +76,7 @@ pub struct Instance
 
 impl Instance
 {
-	pub fn init(dim: (u32, u32), t: Theme) -> Result<Self, GameError>
+	pub fn init(dim: (u32, u32), t: lua::Theme) -> Result<Self, GameError>
 	{
 		let field = Field::init(t.field_dim);
 		let mut pieces = Pieces::init(t.patterns);
