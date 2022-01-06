@@ -1,85 +1,82 @@
-use super::field::{self, Field};
+use sdl2::pixels::Color;
+use sdl2::rect::Point;
+
+use super::field;
 use super::gen;
+
+pub enum Direction {
+    DOWN,
+    LEFT,
+    RIGHT,
+}
 
 // -----------------------------------------------------------------------------
 // Movable Piece
 // -----------------------------------------------------------------------------
 
-pub enum Direction
+pub fn init(
+	p: gen::Piece,
+	field_dim: (usize, usize),
+	field_blocks: &[Point],
+) -> Option<(Vec<Point>, Vec<Color>, usize, Point, i32)>
 {
-	LEFT,
-	RIGHT,
-	DOWN,
+	spawn_new(p, field_dim, field_blocks)
 }
 
-#[derive(Default)]
-pub struct PlayerPiece
+pub fn spawn_new(
+	p: gen::Piece,
+	field_dim: (usize, usize),
+	field_blocks: &[Point],
+) -> Option<(Vec<Point>, Vec<Color>, usize, Point, i32)>
 {
-	pub pos: (i32, i32),
-	pub projection: i32,
-	pub piece: gen::Piece,
-}
+	let pb = p.blocks;
+	let pc = p.colors;
+	let pd = p.dim;
+	let pp = Point::new(((field_dim.0 - pd) / 2) as i32, 0);
 
-impl PlayerPiece
-{
-	pub fn new(field: &Field, pos: (i32, i32), piece: gen::Piece) -> Option<Self>
-	{
-		if field::check_valid(field, &piece.blocks) {
-			let projection = project(pos, &piece, field);
-			Some(Self {
-				pos,
-				piece,
-				projection,
-			})
-		} else {
-			None
-		}
+	if !field::check_valid_pos(field_dim, field_blocks, pp, &pb) {
+		return None;
 	}
+
+	let pj = pproject(field_dim, field_blocks, pp, &pb);
+
+	Some((pb, pc, pd, pp, pj))
 }
 
-fn project(pos: (i32, i32), p: &gen::Piece, field: &Field) -> i32
+pub fn pproject(
+	field_dim: (usize, usize),
+	field_blocks: &[Point],
+	pos: Point,
+	blocks: &[Point],
+) -> i32
 {
-	let mut y = pos.1 + 1;
+	let mut y = pos.y + 1;
 
-	while field::check_valid_pos(field, (pos.0, y), &p.blocks) {
+	while field::check_valid_pos(field_dim, field_blocks, Point::new(pos.x, y), blocks) {
 		y += 1;
 	}
 
 	y - 1
 }
 
-pub fn drop(pp: &mut PlayerPiece)
+pub fn pmove_piece(
+	fd: (usize, usize),
+	fb: &[Point],
+	pl: Point,
+	pb: &[Point],
+	d: Direction,
+) -> Option<(Point, i32)>
 {
-    pp.pos.1 = pp.projection;
-}
-
-pub fn rotate(pp: &mut PlayerPiece, field: &Field) -> bool
-{
-	let p = pp.piece.rotate();
-	let v = field::check_valid_pos(field, pp.pos, &p);
-
-	if v {
-		pp.piece.blocks = p;
-        pp.projection = project(pp.pos, &pp.piece, field);
-	}
-
-	v
-}
-
-pub fn move_piece(pp: &mut PlayerPiece, field: &Field, d: Direction) -> bool
-{
-	let p = match d {
-		Direction::LEFT => (pp.pos.0 - 1, pp.pos.1),
-		Direction::RIGHT => (pp.pos.0 + 1, pp.pos.1),
-		Direction::DOWN => (pp.pos.0, pp.pos.1 + 1),
+	let new_pl = match d {
+		Direction::LEFT => Point::new(pl.x - 1, pl.y),
+		Direction::RIGHT => Point::new(pl.x + 1, pl.y),
+		Direction::DOWN => Point::new(pl.x, pl.y + 1),
 	};
 
-	let v = field::check_valid_pos(field, p, &pp.piece.blocks);
-
-	if v {
-		pp.pos = p;
-        pp.projection = project(pp.pos, &pp.piece, field);
+	if field::check_valid_pos(fd, fb, new_pl, pb) {
+		let p = pproject(fd, fb, new_pl, pb);
+		Some((new_pl, p))
+	} else {
+		None
 	}
-
-	v
 }

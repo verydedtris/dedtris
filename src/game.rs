@@ -1,17 +1,15 @@
-use log::info;
+use rand::prelude::ThreadRng;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use sdl2::render::WindowCanvas;
-
-use crate::game::pieces::Direction;
-
-use self::drawer::DrawCache;
-use self::field::Field;
-use self::gen::Pieces;
-use self::pieces::PlayerPiece;
+use sdl2::rect::{Point, Rect};
+use sdl2::render::{Texture, TextureCreator, WindowCanvas};
+use sdl2::video::WindowContext;
 
 use crate::lua;
+
+use self::gen::Pattern;
+use self::pieces::Direction;
 
 mod drawer;
 mod field;
@@ -47,216 +45,285 @@ impl From<&str> for GameError
 }
 
 // -----------------------------------------------------------------------------
-// Game
+// Game State
 // -----------------------------------------------------------------------------
 
-fn color_to_u32(c: Color) -> u32
+pub struct TetrisState<'a>
 {
-	0u32 | c.r as u32 | (c.g as u32) << 8 | (c.b as u32) << 16 | (c.a as u32) << 24
+	// Field
+	field_blocks: Vec<Point>,
+	field_colors: Vec<Color>,
+	field_size: (usize, usize),
+
+	// Piece Gen
+	rng: ThreadRng,
+	templates: Vec<Pattern>,
+
+	// Piece
+	piece_proj: i32,
+	piece_loc: Point,
+	piece_dim: usize,
+	piece_blocks: Vec<Point>,
+	piece_colors: Vec<Color>,
+
+	// Drawer
+	rblock_size: u32,
+	rfield_rect: Rect,
+	rblocks_texture: Texture<'a>,
 }
 
-fn u32_to_color(n: u32) -> Color
+impl<'a> TetrisState<'a>
 {
-	Color::RGBA(
-		(n & 0xFF) as u8,
-		(n & 0xFF00) as u8,
-		(n & 0xFF0000) as u8,
-		(n & 0xFF000000) as u8,
-	)
-}
-
-pub struct Instance
-{
-	field: Field,
-	pieces: Pieces,
-	piece: PlayerPiece,
-
-	draw_cache: DrawCache,
-}
-
-impl Instance
-{
-	pub fn init(dim: (u32, u32), t: lua::Theme) -> Result<Self, GameError>
+	pub fn init(
+		tc: &'a TextureCreator<WindowContext>,
+		dim: (u32, u32),
+		t: lua::Theme,
+	) -> Result<Self, GameError>
 	{
-		let field = Field::init(t.field_dim);
-		let mut pieces = Pieces::init(t.patterns);
-		let mut draw_cache = DrawCache::init();
+		let (field_blocks, field_colors, field_size) = field::init(t.field_dim);
 
-		set_layout_size(&mut draw_cache, &field, dim);
+		let (mut rng, templates) = gen::init(t.patterns);
 
-		let piece = match spawn_piece(&mut draw_cache, &mut pieces, &field) {
-			Some(x) => x,
-			_ => return Err(GameError::from("Piece couldn't be spawned in.")),
-		};
+		let p = gen::spawn_piece(&mut rng, &templates);
+		let (piece_blocks, piece_colors, piece_dim, piece_loc, piece_proj) =
+			if let Some(d) = pieces::init(p, field_size, &field_blocks) {
+				d
+			} else {
+				return Err(GameError::from("Piece couldn't be spawned."));
+			};
 
-		Ok(Self {
-			field,
-			pieces,
-			piece,
-			draw_cache,
+		let p = size::new_resize(dim, field_size);
+		let (rblock_size, rfield_rect, rblocks_texture) = drawer::init(tc, p);
+
+		Ok(TetrisState {
+			field_blocks,
+			field_colors,
+			field_size,
+			rng,
+			templates,
+			piece_proj,
+			piece_loc,
+			piece_dim,
+			piece_blocks,
+			piece_colors,
+			rblock_size,
+			rfield_rect,
+			rblocks_texture,
 		})
 	}
+}
 
-	pub fn handle_event(&mut self, event: &Event)
+impl TetrisState<'_>
+{
+	fn respawn_piece(&mut self) -> bool
 	{
-		match event {
-			Event::KeyDown {
-				keycode: Some(x), ..
-			} => match x {
-				Keycode::Left => {
-					move_piece(
-						&mut self.piece,
-						&mut self.draw_cache,
-						&self.field,
-						Direction::LEFT,
-					);
-				}
+		let fb = &self.field_blocks;
+		let fs = self.field_size;
+		let rng = &mut self.rng;
+		let pats = &self.templates;
 
-				Keycode::Right => {
-					move_piece(
-						&mut self.piece,
-						&mut self.draw_cache,
-						&self.field,
-						Direction::RIGHT,
-					);
-				}
+		let p = gen::spawn_piece(rng, pats);
+		if let Some((pb, pc, pd, pp, pj)) = pieces::spawn_new(p, fs, fb) {
+			self.piece_blocks = pb;
+			self.piece_colors = pc;
+			self.piece_dim = pd;
+			self.piece_loc = pp;
+			self.piece_proj = pj;
+			return false;
+		}
 
-				Keycode::Down => {
-					let respawn = move_piece(
-						&mut self.piece,
-						&mut self.draw_cache,
-						&self.field,
-						Direction::DOWN,
-					);
+		true
+	}
 
-					if respawn {
-						return;
-					}
+	fn place_piece(&mut self, canvas: &mut WindowCanvas)
+	{
+		let fb = &mut self.field_blocks;
+		let fc = &mut self.field_colors;
+		let pb = &self.piece_blocks;
+		let pc = &self.piece_colors;
+		let pl = self.piece_loc;
 
-					respawn_piece(
-						&mut self.piece,
-						&mut self.field,
-						&mut self.pieces,
-						&mut self.draw_cache,
-					);
-				}
+		fb.extend(pb.iter().map(|b| Point::new(b.x + pl.x, b.y + pl.y)));
+		fc.extend(pc);
 
-				Keycode::Up => {
-					rotate(&mut self.piece, &mut self.draw_cache, &self.field);
-				}
+		let fs = self.field_size;
+		let bs = self.rblock_size;
 
-				Keycode::Space => {
-					drop_player(&mut self.piece, &mut self.draw_cache);
-					respawn_piece(
-						&mut self.piece,
-						&mut self.field,
-						&mut self.pieces,
-						&mut self.draw_cache,
-					);
-				}
+		field::clear_lines(fs, fb, fc);
 
-				_ => (),
-			},
+		let ft = &mut self.rblocks_texture;
 
-			Event::Window {
-				win_event: WindowEvent::Resized(w, h),
-				..
-			} => {
-				set_layout_size(&mut self.draw_cache, &self.field, (*w as u32, *h as u32));
-			}
+		canvas
+			.with_texture_canvas(ft, |canvas| {
+				canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
+				canvas.clear();
 
-			_ => (),
+				drawer::draw_blocks(canvas, bs, &fb, &fc);
+			})
+			.unwrap();
+	}
+
+	fn drop(&mut self, canvas: &mut WindowCanvas) -> bool
+	{
+		let pj = self.piece_proj;
+
+		self.piece_loc.y = pj;
+
+		self.place_piece(canvas);
+
+        self.respawn_piece()
+	}
+
+	fn rotate(&mut self)
+	{
+		let fb = &self.field_blocks;
+		let fs = self.field_size;
+		let pb = &self.piece_blocks;
+		let pl = self.piece_loc;
+		let pd = self.piece_dim;
+
+		let new_pb: Vec<Point> = pb.iter().map(|b| Point::new(pd as i32 - 1 - b.y, b.x)).collect();
+
+		if field::check_valid_pos(fs, fb, pl, &new_pb) {
+			let p = pieces::pproject(fs, fb, pl, &new_pb);
+			self.piece_blocks = new_pb;
+			self.piece_proj = p;
 		}
 	}
 
-	pub fn draw(&self, canvas: &mut WindowCanvas)
+	fn move_piece(&mut self, d: Direction)
 	{
-		drawer::draw_field(&self.draw_cache, canvas);
-		drawer::draw_player(&self.draw_cache, canvas);
+		let fb = &self.field_blocks;
+		let fs = self.field_size;
+		let pb = &self.piece_blocks;
+		let pl = self.piece_loc;
+
+		if let Some((pl, proj)) = pieces::pmove_piece(fs, fb, pl, pb, d) {
+			self.piece_loc = pl;
+			self.piece_proj = proj;
+		}
+	}
+
+	fn move_piece_down(&mut self, canvas: &mut WindowCanvas) -> bool
+	{
+		let fb = &self.field_blocks;
+		let fs = self.field_size;
+		let pb = &self.piece_blocks;
+		let pl = self.piece_loc;
+
+		if let Some((pl, proj)) = pieces::pmove_piece(fs, fb, pl, pb, Direction::DOWN) {
+			self.piece_loc = pl;
+			self.piece_proj = proj;
+			return false;
+		}
+
+        self.place_piece(canvas);
+
+        self.respawn_piece()
+	}
+
+	fn draw_field(&self, canvas: &mut WindowCanvas)
+	{
+		let fr = self.rfield_rect;
+		let bt = &self.rblocks_texture;
+
+		canvas.set_draw_color(Color::BLACK);
+		canvas.fill_rect(fr).unwrap();
+
+		canvas.copy(bt, None, fr).unwrap();
+	}
+
+	pub fn draw_player(&self, canvas: &mut WindowCanvas)
+	{
+		let pcs = &self.piece_colors;
+		let pbs = &self.piece_blocks;
+		let fr = self.rfield_rect;
+		let bs = self.rblock_size;
+		let pos = self.piece_loc;
+		let proj = self.piece_proj;
+
+		debug_assert_eq!(pcs.len(), pbs.len());
+
+		for (c, b) in pcs.iter().zip(pbs) {
+			let color = Color::RGBA(c.r, c.g, c.b, c.a / 2);
+			let block = Rect::new(
+				fr.x + (b.x + pos.x) * bs as i32,
+				fr.y + (b.y + proj) * bs as i32,
+				bs,
+				bs,
+			);
+
+			canvas.set_draw_color(color);
+			canvas.fill_rect(block).unwrap();
+
+			let color = *c;
+			let block = Rect::new(
+				fr.x + (b.x + pos.x) * bs as i32,
+				fr.y + (b.y + pos.y) * bs as i32,
+				bs,
+				bs,
+			);
+
+			canvas.set_draw_color(color);
+			canvas.fill_rect(block).unwrap();
+		}
 	}
 }
 
 // -----------------------------------------------------------------------------
-// Game actions
+// Game
 // -----------------------------------------------------------------------------
 
-fn spawn_piece(cache: &mut DrawCache, pieces: &mut Pieces, field: &Field) -> Option<PlayerPiece>
+pub fn handle_event(event: &Event, canvas: &mut WindowCanvas, state: &mut TetrisState) -> bool
 {
-    let location = (0, 0);
-	let selected = gen::get_next_piece(pieces);
+	match event {
+		Event::KeyDown {
+			keycode: Some(x), ..
+		} => match x {
+			Keycode::Left => {
+				state.move_piece(Direction::LEFT);
+			}
 
-    info!("Spawned piece at {:?}: {:?}", location, selected.blocks);
+			Keycode::Right => {
+				state.move_piece(Direction::RIGHT);
+			}
 
-	let piece = PlayerPiece::new(&field, location, selected)?;
+			Keycode::Down => {
+				state.move_piece_down(canvas);
+				//	let respawn = !move_piece(game, cache, Direction::DOWN);
 
-	drawer::set_player_blocks(
-		cache,
-		piece.pos,
-		piece.projection,
-		&piece.piece.blocks,
-		&piece.piece.colors,
-	);
+				//	if respawn {
+				//		respawn_piece(canvas, game, cache);
+				//	}
+			}
 
-	Some(piece)
-}
+			Keycode::Up => {
+				state.rotate();
+			}
 
-fn move_piece(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field, d: Direction) -> bool
-{
-	let b = pieces::move_piece(p, &field, d);
+			Keycode::Space => {
+				state.drop(canvas);
+				//		respawn_piece(canvas, game, cache);
+			}
 
-	if b {
-		drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
-        info!("Moved piece: {:?}", p.pos);
+			_ => (),
+		},
+
+		Event::Window {
+			win_event: WindowEvent::Resized(w, h),
+			..
+		} => {
+			// set_layout_size(&mut self.draw_cache, &self.field, (*w as u32, *h as u32));
+		}
+
+		_ => (),
 	}
 
-	b
+	true
 }
 
-fn rotate(p: &mut PlayerPiece, cache: &mut DrawCache, field: &Field) -> bool
+pub fn draw(state: &TetrisState, canvas: &mut WindowCanvas)
 {
-	let b = pieces::rotate(p, &field);
-
-	if b {
-		drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
-        info!("Rotated piece.");
-	}
-
-	b
-}
-
-fn drop_player(p: &mut PlayerPiece, cache: &mut DrawCache)
-{
-	pieces::drop(p);
-	drawer::set_player_blocks(cache, p.pos, p.projection, &p.piece.blocks, &p.piece.colors);
-    info!("Dropped piece: {:?}", p.pos);
-}
-
-fn respawn_piece(p: &mut PlayerPiece, field: &mut Field, pieces: &mut Pieces, cache: &mut DrawCache)
-{
-	place_piece(std::mem::take(p), field, cache);
-
-	if let Some(pp) = spawn_piece(cache, pieces, field) {
-		*p = pp;
-	} else {
-		println!("Game Over.");
-	}
-}
-
-fn place_piece(p: PlayerPiece, field: &mut Field, cache: &mut DrawCache)
-{
-	let blocks = p.piece.move_delta(p.pos);
-	let colors = p.piece.colors;
-
-	field::add_pieces(field, &blocks, &colors);
-	let l = field::clear_lines(field);
-
-    info!("Lines removed: {:?}", l);
-
-	drawer::set_field_blocks(cache, &field.blocks, &field.colors);
-}
-
-fn set_layout_size(cache: &mut DrawCache, field: &Field, dim: (u32, u32))
-{
-	let r = size::new_resize(dim, field.field_dim);
-	drawer::set_size(cache, r);
+	state.draw_field(canvas);
+	state.draw_player(canvas);
 }

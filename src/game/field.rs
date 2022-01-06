@@ -1,58 +1,22 @@
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
+use sdl2::rect::Point;
 
-pub struct Field
+pub fn init(field_dim: (usize, usize)) -> (Vec<Point>, Vec<Color>, (usize, usize))
 {
-	pub rect: Rect,
+	let fb = Vec::new();
+	let fc = Vec::new();
+	let d = field_dim;
 
-	pub blocks: Vec<(i32, i32)>,
-	pub colors: Vec<Color>,
-
-	pub field_dim: (usize, usize),
-	pub block_size: u32,
+	(fb, fc, d)
 }
 
-impl Field
+pub fn lines_list(fd: (usize, usize), fb: &[Point]) -> Vec<i32>
 {
-	pub fn init(field_dim: (usize, usize)) -> Self
-	{
-		Field {
-			rect: Rect::new(0, 0, 0, 0),
-			blocks: Vec::new(),
-			colors: Vec::new(),
-			field_dim,
-			block_size: 0,
-		}
-	}
-}
-
-pub fn add_pieces(field: &mut Field, blocks: &[(i32, i32)], color: &[Color])
-{
-	debug_assert!(check_valid(field, blocks));
-	debug_assert_eq!(blocks.len(), color.len());
-
-	field.colors.extend(color);
-	field.blocks.extend_from_slice(blocks);
-}
-
-pub fn count_lines(field: &Field) -> Vec<i32>
-{
-	let mut lines = vec![0i32; field.field_dim.1];
-
-	for b in &field.blocks {
-		lines[b.1 as usize] += 1;
-	}
-
-	lines
-}
-
-pub fn lines_list(field: &Field) -> Vec<i32>
-{
-	count_lines(field)
+	count_lines(fd.1, fb)
 		.iter()
 		.enumerate()
 		.filter_map(|(i, l)| {
-			if *l >= field.field_dim.0 as i32 {
+			if *l >= fd.0 as i32 {
 				Some(i as i32)
 			} else {
 				None
@@ -61,41 +25,53 @@ pub fn lines_list(field: &Field) -> Vec<i32>
 		.collect()
 }
 
-pub fn clear_lines(field: &mut Field) -> Vec<i32>
+pub fn clear_lines(fd: (usize, usize), fb: &mut Vec<Point>, fc: &mut Vec<Color>) -> Vec<i32>
 {
-	let lines = lines_list(field);
+	let lines = lines_list(fd, fb);
 
 	let mut removed = 0;
-	for i in 0..field.blocks.len() {
+	for i in 0..fb.len() {
 		let i = i - removed;
 
-		if let Some(ii) = lines.iter().position(|l| *l >= field.blocks[i].1) {
-			if field.blocks[i].1 == lines[ii] as i32 {
-				field.blocks.swap_remove(i);
-				field.colors.swap_remove(i);
+		if let Some(ii) = lines.iter().position(|l| *l >= fb[i].y) {
+			if fb[i].y == lines[ii] as i32 {
+				fb.swap_remove(i);
+				fc.swap_remove(i);
 				removed += 1;
 			} else {
 				let shift = lines.len() - ii;
-				field.blocks[i].1 += shift as i32;
+				fb[i].y += shift as i32;
 			}
 		}
 	}
 
-    lines
+	lines
 }
 
-pub fn check_valid_pos(field: &Field, pos: (i32, i32), blocks: &[(i32, i32)]) -> bool
+pub fn check_valid_pos(
+	field_dim: (usize, usize),
+	field_blocks: &[Point],
+	pos: Point,
+	blocks: &[Point],
+) -> bool
 {
 	!blocks.iter().any(|block| {
-		let b = (block.0 + pos.0, block.1 + pos.1);
+		let b = Point::new(block.x + pos.x, block.y + pos.y);
 
-		field.blocks.contains(&b)
-			|| b.0 < 0 || b.0 >= field.field_dim.0 as i32
-			|| b.1 >= field.field_dim.1 as i32
+		b.x < 0
+			|| b.x >= field_dim.0 as i32
+			|| b.y >= field_dim.1 as i32
+			|| field_blocks.contains(&b)
 	})
 }
 
-pub fn check_valid(field: &Field, blocks: &[(i32, i32)]) -> bool
+pub fn count_lines(height: usize, blocks: &[Point]) -> Vec<i32>
 {
-	check_valid_pos(field, (0, 0), blocks)
+	let mut lines = vec![0i32; height];
+
+	for b in blocks {
+		lines[b.y as usize] += 1;
+	}
+
+	lines
 }

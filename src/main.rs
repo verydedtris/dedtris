@@ -10,6 +10,8 @@ use sdl2::pixels::Color;
 use std::path::Path;
 use std::time::Duration;
 
+use crate::game::{handle_event, draw, TetrisState};
+
 mod file;
 mod game;
 mod lua;
@@ -43,21 +45,23 @@ fn main()
 
 	// Init Lua runtime
 
-    let path = Path::new("test.lua");
+	let path = Path::new("test.lua");
 
-    info!("Initializing Lua plugin enviroment and loading {}.", path.display());
-    let lua = init!(lua::Lua::new(&path));
+	info!(
+		"Initializing Lua plugin enviroment and loading {}.",
+		path.display()
+	);
+	let lua = init!(lua::Lua::new(&path));
 
 	// Load theme
 
 	info!("Loading resource {}.", path.display());
 	let theme = if let Ok(o) = lua.get_theme() {
-        o
-    } else {
-        info!("Exitting.");
-        return;
-    };
-
+		o
+	} else {
+		info!("Exiting.");
+		return;
+	};
 
 	// Init SDL2 and its window system
 
@@ -80,12 +84,12 @@ fn main()
 
 	info!("Constructing renderer for window.");
 	let mut canvas = init!(
-		window.into_canvas().build(),
+		window.into_canvas().accelerated().target_texture().build(),
 		"Couldn't construct renderer: {}"
 	);
+	let texture_creator = canvas.texture_creator();
 
 	canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-
 	canvas.set_draw_color(Color::RGB(0, 255, 255));
 	canvas.clear();
 	canvas.present();
@@ -94,7 +98,7 @@ fn main()
 
 	info!("Initializing tetris game.");
 	let mut game = init!(
-		game::Instance::init(canvas.output_size().unwrap(), theme),
+		TetrisState::init(&texture_creator, canvas.output_size().unwrap(), theme),
 		"Couldn't launch game: {}"
 	);
 
@@ -117,12 +121,12 @@ fn main()
 					..
 				} => break 'running,
 				_ => {
-					game.handle_event(&event);
+					handle_event(&event, &mut canvas, &mut game);
 				}
 			}
 		}
 
-		game.draw(&mut canvas);
+		draw(&game, &mut canvas);
 
 		canvas.present();
 		::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
