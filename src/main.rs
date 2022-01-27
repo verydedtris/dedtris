@@ -7,11 +7,12 @@ use log::{error, info};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use std::path::Path;
 use std::time::Duration;
+use std::{borrow::BorrowMut, path::Path};
 
-use crate::game::{handle_event, draw, TetrisState};
+use crate::game::{draw, handle_event, TetrisState};
 
+mod error;
 mod file;
 mod game;
 mod lua;
@@ -42,26 +43,6 @@ fn main()
 	// Init Logger
 
 	env_logger::init();
-
-	// Init Lua runtime
-
-	let path = Path::new("test.lua");
-
-	info!(
-		"Initializing Lua plugin enviroment and loading {}.",
-		path.display()
-	);
-	let lua = init!(lua::Lua::new(&path));
-
-	// Load theme
-
-	info!("Loading resource {}.", path.display());
-	let theme = if let Ok(o) = lua.get_theme() {
-		o
-	} else {
-		info!("Exiting.");
-		return;
-	};
 
 	// Init SDL2 and its window system
 
@@ -94,41 +75,59 @@ fn main()
 	canvas.clear();
 	canvas.present();
 
-	// Init Game
+	// Init Lua runtime
 
-	info!("Initializing tetris game.");
-	let mut game = init!(
-		TetrisState::init(&texture_creator, canvas.output_size().unwrap(), theme),
-		"Couldn't launch game: {}"
+	let path = Path::new("test.lua");
+
+	info!(
+		"Initializing Lua plugin enviroment and loading {}.",
+		path.display()
 	);
 
-	// Event Loop
+	let lua = rlua::Lua::new();
 
-	let mut event_pump = sdl_context.event_pump().unwrap();
-	let mut i = 0;
+	lua.context(|ctx| {
+		// Load theme file
 
-	'running: loop {
-		i = (i + 1) % 255;
+		lua::exec_file(&ctx, path);
 
-		canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
-		canvas.clear();
+		// Init Game
 
-		for event in event_pump.poll_iter() {
-			match event {
-				Event::Quit { .. }
-				| Event::KeyDown {
-					keycode: Some(Keycode::Escape),
-					..
-				} => break 'running,
-				_ => {
-					handle_event(&event, &mut canvas, &mut game);
+		info!("Initializing tetris game.");
+		let mut game = init!(TetrisState::init(
+			&texture_creator,
+			canvas.output_size().unwrap(),
+			ctx
+		));
+
+		// Event Loop
+
+		let mut event_pump = sdl_context.event_pump().unwrap();
+		let mut i = 0;
+
+		'running: loop {
+			i = (i + 1) % 255;
+
+			canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
+			canvas.clear();
+
+			for event in event_pump.poll_iter() {
+				match event {
+					Event::Quit { .. }
+					| Event::KeyDown {
+						keycode: Some(Keycode::Escape),
+						..
+					} => break 'running,
+					_ => {
+						handle_event(&event, &mut canvas, &mut game);
+					}
 				}
 			}
+
+			draw(&game, &mut canvas);
+
+			canvas.present();
+			::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 		}
-
-		draw(&game, &mut canvas);
-
-		canvas.present();
-		::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
-	}
+	});
 }

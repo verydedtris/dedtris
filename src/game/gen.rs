@@ -6,6 +6,8 @@ use sdl2::rect::Point;
 
 use crate::lua;
 
+use super::theme;
+
 // -----------------------------------------------------------------------------
 // Piece
 // -----------------------------------------------------------------------------
@@ -29,7 +31,7 @@ pub struct Pattern
 	pub template: BitVec,
 }
 
-pub fn init(patterns: Vec<lua::Pattern>) -> (ThreadRng, Vec<Pattern>)
+pub fn init(patterns: Vec<theme::Pattern>) -> (ThreadRng, Vec<Pattern>)
 {
     let rng = rand::thread_rng();
     let ps = transform_theme_patterns(patterns);
@@ -67,7 +69,7 @@ pub fn spawn_piece(rng: &mut ThreadRng, patterns: &[Pattern]) -> Piece
 	transform_pattern(p)
 }
 
-pub fn transform_theme_patterns(patterns: Vec<lua::Pattern>) -> Vec<Pattern>
+pub fn transform_theme_patterns(patterns: Vec<theme::Pattern>) -> Vec<Pattern>
 {
 	patterns
 		.into_iter()

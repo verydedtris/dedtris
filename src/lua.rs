@@ -4,10 +4,9 @@ use std::path::Path;
 
 use log::error;
 
-pub use self::theme::Theme;
-pub use self::theme::Pattern;
-
-mod theme;
+// -----------------------------------------------------------------------------
+// Error
+// -----------------------------------------------------------------------------
 
 pub struct Error {}
 
@@ -40,39 +39,39 @@ impl From<&str> for Error
 
 type Result<T> = core::result::Result<T, Error>;
 
-pub struct Lua
+// -----------------------------------------------------------------------------
+// Lua routines
+// -----------------------------------------------------------------------------
+
+pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<()>
 {
-	runtime: rlua::Lua,
-}
-
-impl Lua
-{
-	pub fn new(p: &Path) -> Result<Self>
-	{
-		let runtime = rlua::Lua::new();
-
-		load_file(&runtime, p)?;
-
-		Ok(Self { runtime })
-	}
-}
-
-impl Lua
-{
-	pub fn get_theme(&self) -> Result<Theme>
-	{
-		theme::load(&self.runtime)
-	}
-}
-
-fn load_file(l: &rlua::Lua, p: &Path) -> Result<()>
-{
-	let mut file = File::open(p)?;
+	let mut file = File::open(path)?;
 
 	let mut buffer = Vec::new();
 	file.read_to_end(&mut buffer)?;
 
-	l.context(|ctx| ctx.load(&buffer).exec())?;
+	ctx.load(&buffer).exec()?;
 
 	Ok(())
+}
+
+// -----------------------------------------------------------------------------
+// Lua/Rust Function
+// -----------------------------------------------------------------------------
+
+pub enum Function<'a>
+{
+	LuaFunc(rlua::Function<'a>),
+	RustFunc(fn()),
+}
+
+impl Function<'_>
+{
+	pub fn call(&self)
+	{
+		match self {
+			Function::LuaFunc(_) => todo!(),
+			Function::RustFunc(_) => todo!(),
+		}
+	}
 }

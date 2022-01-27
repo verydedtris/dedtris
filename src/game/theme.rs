@@ -5,7 +5,7 @@ use sdl2::pixels::Color;
 
 use std::convert::TryFrom;
 
-use super::Error;
+use crate::error::{Error, Result};
 
 // -----------------------------------------------------------------------------
 // Parse Structures
@@ -17,18 +17,6 @@ pub struct Pattern
 	pub dim: usize,
 	pub colors: Vec<Color>,
 	pub template: BitVec,
-}
-
-impl Pattern
-{
-	pub fn new(dim: usize, colors: Vec<Color>, template: BitVec) -> Self
-	{
-		Self {
-			dim,
-			colors,
-			template,
-		}
-	}
 }
 
 #[derive(Debug)]
@@ -76,23 +64,21 @@ impl Theme
 // Block Parsing
 // -----------------------------------------------------------------------------
 
-pub fn load(r: &rlua::Lua) -> super::Result<Theme>
+pub fn load(ctx: &rlua::Context) -> Result<Theme>
 {
-	r.context(|ctx| {
-		let g = ctx.globals();
+	let g = ctx.globals();
 
-		let f: Function = g.get("load_config")?;
-		let res = f.call::<_, LuaTable>(())?;
+	let f: Function = g.get("load_config")?;
+	let res = f.call::<_, LuaTable>(())?;
 
-        parse_theme(res)
-	})
+	parse_theme(res)
 }
 
 // -----------------------------------------------------------------------------
 // Parsing Functions
 // -----------------------------------------------------------------------------
 
-fn parse_theme(table: LuaTable) -> super::Result<Theme>
+fn parse_theme(table: LuaTable) -> Result<Theme>
 {
 	let width = table.get::<_, LuaInteger>("width")? as usize;
 	let height = table.get::<_, LuaInteger>("height")? as usize;
@@ -112,21 +98,25 @@ fn parse_theme(table: LuaTable) -> super::Result<Theme>
 	Ok(Theme::from_data(pieces, (width, height)))
 }
 
-fn parse_pattern(table: LuaTable) -> super::Result<Pattern>
+fn parse_pattern(table: LuaTable) -> Result<Pattern>
 {
-	let size = table.get::<_, LuaInteger>("size")? as usize;
+	let dim = table.get::<_, LuaInteger>("size")? as usize;
 
 	let template = table.get::<_, LuaString>("template")?;
-	let (template, blocks) = parse_piece_body(template, size)?;
+	let (template, blocks) = parse_piece_body(template, dim)?;
 
 	let color = table.get::<_, LuaTable>("color")?;
 	let color = parse_piece_color(color)?;
-	let color = vec![color; blocks];
+	let colors = vec![color; blocks];
 
-	Ok(Pattern::new(size, color, template))
+	Ok(Pattern {
+		dim,
+		colors,
+		template,
+	})
 }
 
-fn parse_piece_body(data: LuaString, pd: usize) -> super::Result<(BitVec, usize)>
+fn parse_piece_body(data: LuaString, pd: usize) -> Result<(BitVec, usize)>
 {
 	let ps = pd * pd;
 
@@ -161,7 +151,7 @@ fn parse_piece_body(data: LuaString, pd: usize) -> super::Result<(BitVec, usize)
 	Ok((field, blocks))
 }
 
-fn parse_piece_color(data: LuaTable) -> super::Result<Color>
+fn parse_piece_color(data: LuaTable) -> Result<Color>
 {
 	let r = data.get::<_, LuaInteger>("r")?;
 	let g = data.get::<_, LuaInteger>("g")?;
