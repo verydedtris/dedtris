@@ -48,6 +48,7 @@ pub struct TetrisState<'a, 'b>
 
 	// Lua context
 	lua_ctx: rlua::Context<'b>,
+    lua_spawn_piece: lua::Function<'b>,
 }
 
 impl<'a, 'b> TetrisState<'a, 'b>

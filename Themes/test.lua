@@ -1,16 +1,4 @@
-function spawn_piece()
-	
-end
-
-function on_UP()
-
-end
-
-function load_config()
-	return {
-		width = 10,
-		height = 20,
-		pieces = {
+local pieces = {
 			[1] = {
 				size = 4,
 				template = [[
@@ -110,5 +98,15 @@ function load_config()
 				},
 			}
 		}
+
+function spawn_piece()
+	return pieces[0]
+end
+
+function load_config()
+	return {
+		width = 10,
+		height = 20,
+		pieces = pieces
 	}
 end
