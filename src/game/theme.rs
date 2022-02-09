@@ -2,10 +2,12 @@ use bitvec::prelude::BitVec;
 use rlua::prelude::*;
 use rlua::Function;
 use sdl2::pixels::Color;
+use sdl2::rect::Point;
 
 use std::convert::TryFrom;
+use std::ops::Index;
 
-use crate::error::{Error, Result};
+use crate::error::Error;
 
 // -----------------------------------------------------------------------------
 // Parse Structures
@@ -19,8 +21,26 @@ pub struct Pattern
 	pub template: BitVec,
 }
 
+pub enum LogicIndex
+{
+	SpawnPiece,
+	All,
+}
+
+pub type LogicTable<'a> = [rlua::Function<'a>; LogicIndex::All as usize];
+
+impl<'a> Index<LogicIndex> for LogicTable<'a>
+{
+	type Output = rlua::Function<'a>;
+
+	fn index(&self, index: LogicIndex) -> &Self::Output
+	{
+		&self[index as usize]
+	}
+}
+
 #[derive(Debug)]
-pub struct Theme
+pub struct Theme<'a>
 {
 	pub bg_color: Color,
 
@@ -29,107 +49,64 @@ pub struct Theme
 
 	pub field_dim: (usize, usize),
 
-	pub patterns: Vec<Pattern>,
-}
-
-impl Default for Theme
-{
-	fn default() -> Self
-	{
-		Theme {
-			bg_color: Color::WHITE,
-			field_bg_color: Color::BLACK,
-			field_edge_color: Color::GRAY,
-			field_dim: (0, 0),
-			patterns: Vec::new(),
-		}
-	}
-}
-
-impl Theme
-{
-	fn from_data(patterns: Vec<Pattern>, field_dim: (usize, usize)) -> Theme
-	{
-		Theme {
-			bg_color: Color::WHITE,
-			field_bg_color: Color::BLACK,
-			field_edge_color: Color::GRAY,
-			field_dim,
-			patterns,
-		}
-	}
+	pub game_logic: LogicTable<'a>,
 }
 
 // -----------------------------------------------------------------------------
 // Block Parsing
 // -----------------------------------------------------------------------------
 
-pub fn load(ctx: &rlua::Context) -> Result<Theme>
+pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme<'a>, Error>
 {
 	let g = ctx.globals();
+	let init = g.get::<_, rlua::Function<'a>>("init_game")?.call::<_, rlua::Table>(())?;
 
-	let f: Function = g.get("load_config")?;
-	let res = f.call::<_, LuaTable>(())?;
+	let width = usize::try_from(init.get::<_, LuaInteger>("width")?)?;
+	let height = usize::try_from(init.get::<_, LuaInteger>("height")?)?;
 
-	parse_theme(res)
+	let game_logic: LogicTable<'a> = [g.get::<_, rlua::Function<'a>>("spawn_piece")?];
+
+	Ok(Theme {
+		bg_color: Color::WHITE,
+		field_bg_color: Color::BLACK,
+		field_edge_color: Color::GRAY,
+		field_dim: (width, height),
+		game_logic,
+	})
 }
 
 // -----------------------------------------------------------------------------
 // Parsing Functions
 // -----------------------------------------------------------------------------
 
-fn parse_theme(table: LuaTable) -> Result<Theme>
-{
-	let width = table.get::<_, LuaInteger>("width")? as usize;
-	let height = table.get::<_, LuaInteger>("height")? as usize;
-
-	let pieces = table.get::<_, rlua::Table>("pieces")?;
-	let pieces = {
-		let mut patterns = Vec::new();
-
-		for p in pieces.sequence_values::<rlua::Table>() {
-			let p = parse_pattern(p?)?;
-			patterns.push(p);
-		}
-
-		patterns
-	};
-
-	Ok(Theme::from_data(pieces, (width, height)))
-}
-
-fn parse_pattern(table: LuaTable) -> Result<Pattern>
+pub fn parse_pattern(table: LuaTable) -> Result<(usize, Vec<Color>, Vec<Point>), Error>
 {
 	let dim = table.get::<_, LuaInteger>("size")? as usize;
 
 	let template = table.get::<_, LuaString>("template")?;
-	let (template, blocks) = parse_piece_body(template, dim)?;
+	let blocks = parse_piece_body(template, dim)?;
 
 	let color = table.get::<_, LuaTable>("color")?;
 	let color = parse_piece_color(color)?;
-	let colors = vec![color; blocks];
+	let colors = vec![color; blocks.len()];
 
-	Ok(Pattern {
-		dim,
-		colors,
-		template,
-	})
+	Ok((dim, colors, blocks))
 }
 
-fn parse_piece_body(data: LuaString, pd: usize) -> Result<(BitVec, usize)>
+fn parse_piece_body(data: LuaString, pd: usize) -> Result<Vec<Point>, Error>
 {
 	let ps = pd * pd;
 
-	let mut field = BitVec::with_capacity(ps);
-	let mut blocks = 0;
+	let mut field = Vec::with_capacity(ps);
+    let mut blocks = 0;
 
-	for i in data.as_bytes() {
-		match i {
+	for (i, c) in data.as_bytes().iter().enumerate() {
+		match c {
 			b'1' => {
-				field.push(true);
-				blocks += 1;
+				field.push(Point::new((i % pd) as i32, (i / pd) as i32));
+                blocks += 1;
 			}
-			b'0' => field.push(false),
+            b'0' => blocks += 1,
 			b'\n' | b' ' | b'\r' | b'\t' => {}
 			_ => {
 				return Err(Error::from("Characters must be 0's or 1's."));
@@ -137,7 +114,7 @@ fn parse_piece_body(data: LuaString, pd: usize) -> Result<(BitVec, usize)>
 		}
 	}
 
-	if ps != field.len() {
+	if ps != blocks {
 		return Err(Error::from(
 			format!(
 				"A piece size doesn't match it's given size. is: {}, should be: {}.",
@@ -148,10 +125,10 @@ fn parse_piece_body(data: LuaString, pd: usize) -> Result<(BitVec, usize)>
 		));
 	}
 
-	Ok((field, blocks))
+	Ok(field)
 }
 
-fn parse_piece_color(data: LuaTable) -> Result<Color>
+fn parse_piece_color(data: LuaTable) -> Result<Color, Error>
 {
 	let r = data.get::<_, LuaInteger>("r")?;
 	let g = data.get::<_, LuaInteger>("g")?;

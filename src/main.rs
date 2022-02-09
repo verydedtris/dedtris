@@ -89,6 +89,7 @@ fn main()
 	lua.context(|ctx| {
 		// Load theme file
 
+        game::load_default(&ctx);
 		lua::exec_file(&ctx, path);
 
 		// Init Game
@@ -97,10 +98,12 @@ fn main()
 		let mut game = init!(TetrisState::init(
 			&texture_creator,
 			canvas.output_size().unwrap(),
-			ctx
+			&ctx
 		));
 
 		// Event Loop
+
+		info!("Beginning Game.");
 
 		let mut event_pump = sdl_context.event_pump().unwrap();
 		let mut i = 0;

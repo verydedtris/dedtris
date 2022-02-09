@@ -37,13 +37,11 @@ impl From<&str> for Error
 	}
 }
 
-type Result<T> = core::result::Result<T, Error>;
-
 // -----------------------------------------------------------------------------
 // Lua routines
 // -----------------------------------------------------------------------------
 
-pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<()>
+pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<(), Error>
 {
 	let mut file = File::open(path)?;
 
@@ -53,25 +51,4 @@ pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<()>
 	ctx.load(&buffer).exec()?;
 
 	Ok(())
-}
-
-// -----------------------------------------------------------------------------
-// Lua/Rust Function
-// -----------------------------------------------------------------------------
-
-pub enum Function<'a>
-{
-	LuaFunc(rlua::Function<'a>),
-	RustFunc(fn()),
-}
-
-impl Function<'_>
-{
-	pub fn call(&self)
-	{
-		match self {
-			Function::LuaFunc(_) => todo!(),
-			Function::RustFunc(_) => todo!(),
-		}
-	}
 }

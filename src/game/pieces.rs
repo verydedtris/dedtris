@@ -38,12 +38,12 @@ pub fn spawn_new(
 		return None;
 	}
 
-	let pj = pproject(field_dim, field_blocks, pp, &pb);
+	let pj = project(field_dim, field_blocks, pp, &pb);
 
 	Some((pb, pc, pd, pp, pj))
 }
 
-pub fn pproject(
+pub fn project(
 	field_dim: (usize, usize),
 	field_blocks: &[Point],
 	pos: Point,
@@ -59,7 +59,7 @@ pub fn pproject(
 	y - 1
 }
 
-pub fn pmove_piece(
+pub fn move_piece(
 	fd: (usize, usize),
 	fb: &[Point],
 	pl: Point,
@@ -74,7 +74,7 @@ pub fn pmove_piece(
 	};
 
 	if field::check_valid_pos(fd, fb, new_pl, pb) {
-		let p = pproject(fd, fb, new_pl, pb);
+		let p = project(fd, fb, new_pl, pb);
 		Some((new_pl, p))
 	} else {
 		None

@@ -1,3 +1,4 @@
+use rlua::prelude::LuaError;
 use log::{error, info};
 
 pub struct Error {}
@@ -11,9 +12,9 @@ impl From<std::io::Error> for Error
 	}
 }
 
-impl From<rlua::Error> for Error
+impl From<LuaError> for Error
 {
-	fn from(e: rlua::Error) -> Self
+	fn from(e: LuaError) -> Self
 	{
 		error!("Lua load error: {}", e);
 		Self {}
@@ -29,4 +30,11 @@ impl From<&str> for Error
 	}
 }
 
-pub type Result<T> = core::result::Result<T, Error>;
+impl From<std::num::TryFromIntError> for Error
+{
+    fn from(e: std::num::TryFromIntError) -> Self
+    {
+        error!("{}", e);
+        Self {}
+    }
+}
