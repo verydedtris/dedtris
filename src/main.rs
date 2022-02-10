@@ -8,7 +8,7 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use std::time::Duration;
-use std::{borrow::BorrowMut, path::Path};
+use std::path::Path;
 
 use crate::game::{draw, handle_event, TetrisState};
 
@@ -77,7 +77,7 @@ fn main()
 
 	// Init Lua runtime
 
-	let path = Path::new("test.lua");
+	let path = Path::new("Themes/test.lua");
 
 	info!(
 		"Initializing Lua plugin enviroment and loading {}.",
@@ -89,8 +89,8 @@ fn main()
 	lua.context(|ctx| {
 		// Load theme file
 
-        game::load_default(&ctx);
-		lua::exec_file(&ctx, path);
+        init!(game::load_default(&ctx));
+		init!(lua::exec_file(&ctx, path));
 
 		// Init Game
 
