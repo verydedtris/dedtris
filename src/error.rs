@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::num::TryFromIntError;
 
 use log::error;
 use rlua::prelude::LuaError;
@@ -8,69 +8,94 @@ pub trait Constructable
 	fn new() -> Self;
 }
 
-pub struct PError
-{
-	pub msg: String,
-}
+pub struct Error;
 
-impl Display for PError
-{
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
-	{
-		write!(f, "{}", self.msg)
-	}
-}
-
-impl From<&str> for PError
+impl From<&str> for Error
 {
 	fn from(e: &str) -> Self
 	{
-		Self { msg: e.to_string() }
+		error!("{}", e);
+		Self {}
 	}
 }
 
-impl From<String> for PError
+impl From<String> for Error
 {
 	fn from(e: String) -> Self
 	{
-		Self { msg: e }
+		error!("{}", e);
+		Self {}
+	}
+}
+
+impl From<LuaError> for Error
+{
+	fn from(e: LuaError) -> Self
+	{
+		error!("{}", e);
+		Self {}
+	}
+}
+
+impl From<TryFromIntError> for Error
+{
+	fn from(e: TryFromIntError) -> Self
+	{
+		error!("{}", e);
+		Self {}
+	}
+}
+
+impl From<std::io::Error> for Error
+{
+	fn from(e: std::io::Error) -> Self
+	{
+		error!("{}", e);
+		Self {}
 	}
 }
 
 #[macro_export]
 macro_rules! err {
-	($x:expr, $msg:expr) => {
-		if let Ok(x) = $x {
-			x
-		} else {
-			return Err(PError::from($msg));
-		}
-	};
-}
-
-#[macro_export]
-macro_rules! propagate {
     ($x:expr, $msg:expr, $($param:expr),+) => {
 		match $x {
 			Ok(x) => x,
-			Err(e) => return Err(PError::from(format!("{}: {}", format!($msg, $($param,)+), e))),
+			Err(_) => return Err(Error::from(format!("{}", format!($msg, $($param,)+)))),
 		}
     };
 
 	($x:expr, $msg:expr) => {
-		match $x {
-			Ok(x) => x,
-			Err(e) => return Err(PError::from(format!("{}: {}", $msg, e))),
-		}
-	};
-
-	($x:expr) => {
-		match $x {
-			Ok(x) => x,
-			Err(e) => return Err(PError::from(format!("{}", e))),
+		if let Ok(x) = $x {
+			x
+		} else {
+			return Err(Error::from($msg));
 		}
 	};
 }
+
+// #[macro_export]
+// macro_rules! propagate {
+//     ($x:expr, $msg:expr, $($param:expr),+) => {
+// 		match $x {
+// 			Ok(x) => x,
+// 			Err(e) => return Err(PError::from(format!("{}: {}", format!($msg, $($param,)+), e))),
+// 		}
+//     };
+//
+// 	($x:expr, $msg:expr) => {
+// 		match $x {
+// 			Ok(x) => x,
+// 			Err(e) => return Err(PError::from(format!("{}: {}", $msg, e))),
+// 		}
+// 	};
+//
+// 	($x:expr) => {
+// 		match $x {
+// 			Ok(x) => x,
+// 			Err(e) => return Err(PError::from(format!("{}", e))),
+// 		}
+// 	};
+// }
 
 #[macro_export]
 macro_rules! end {

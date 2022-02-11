@@ -10,10 +10,11 @@ use sdl2::pixels::Color;
 use std::path::Path;
 use std::time::Duration;
 
+use crate::error::Error;
 use crate::game::{draw, handle_event, TetrisState};
 
 mod error;
-mod file;
+// mod file;
 mod game;
 mod lua;
 
@@ -70,21 +71,17 @@ fn main()
 
 	let lua = rlua::Lua::new();
 
-	lua.context(|ctx| {
+	if let Err(_) = lua.context::<_, Result<(), Error>>(|ctx| {
 		// Load theme file
 
-		end!(game::load_default(&ctx), "Loading defaults");
-		end!(lua::exec_file(&ctx, path), "Running theme");
+		game::load_default(&ctx)?;
+		lua::exec_file(&ctx, path)?;
 
 		// Init Game
 
 		info!("Initializing tetris game.");
 
-		let mut game = end!(TetrisState::init(
-			&texture_creator,
-			canvas.output_size().unwrap(),
-			&ctx
-		));
+		let mut game = TetrisState::init(&texture_creator, canvas.output_size().unwrap(), &ctx)?;
 
 		// Event Loop
 
@@ -107,7 +104,7 @@ fn main()
 						..
 					} => break 'running,
 					_ => {
-						handle_event(&event, &mut canvas, &mut game);
+						handle_event(&event, &mut canvas, &mut game)?;
 					}
 				}
 			}
@@ -117,5 +114,9 @@ fn main()
 			canvas.present();
 			::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 		}
-	});
+
+		Ok(())
+	}) {
+		error!("Unrecoverable error.");
+	}
 }

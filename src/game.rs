@@ -5,11 +5,9 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{Texture, TextureCreator, WindowCanvas};
 use sdl2::video::WindowContext;
 
-use crate::error::PError;
-use crate::propagate;
+use crate::error::Error;
 
 use self::pieces::Direction;
-use self::theme::{LogicIndex, LogicTable};
 
 mod drawer;
 mod field;
@@ -18,12 +16,12 @@ mod pieces;
 mod size;
 mod theme;
 
-pub fn load_default(ctx: &rlua::Context) -> Result<(), PError>
+pub fn load_default(ctx: &rlua::Context) -> Result<(), Error>
 {
-	propagate!(ctx.load(
+	ctx.load(
 		r#"pieces={[1]={size=4,template=[[0000111100000000]],color={r=68,g=210,b=242,a=0xFF,},},[2]={size=3,template=[[100111000]],color={r=53,g=39,b=145,a=0xFF,},},[3]={size=3,template=[[001111000]],color={r=227,g=133,b=61,a=0xFF,},},[4]={size=2,template=[[1111]],color={r=242,g=210,b=68,a=0xFF,},},[5]={size=3,template=[[011110000]],color={r=49,g=186,b=47,a=0xFF,},},[6]={size=3,template=[[010111000]],color={r=142,g=47,b=186,a=0xFF,},},[7]={size=3,template=[[110011000]],color={r=196,g=47,b=47,a=0xFF,},}}function spawn_piece()return pieces[3]end function init_game()return{width=10,height=20}end"#,
 	)
-	.exec());
+	.exec()?;
 
 	Ok(())
 }
@@ -53,7 +51,6 @@ pub struct TetrisState<'a, 'b, 'c>
 
 	// Lua context
 	lua_ctx: &'c rlua::Context<'b>,
-	lua_logic: LogicTable<'b>,
 }
 
 impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
@@ -62,21 +59,19 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 		tc: &'a TextureCreator<WindowContext>,
 		dim: (u32, u32),
 		lua_ctx: &'c rlua::Context<'b>,
-	) -> Result<Self, PError>
+	) -> Result<Self, Error>
 	{
-		let t = propagate!(theme::load(lua_ctx), "theme init");
-
-		let lua_logic = t.game_logic;
+		let t = theme::load(lua_ctx)?;
 
 		let (field_blocks, field_colors, field_size) = field::init(t.field_dim);
 
-		let p = gen::spawn_piece(&lua_logic[LogicIndex::SpawnPiece])?;
+		let p = gen::spawn_piece(&lua_ctx)?;
 
 		let (piece_blocks, piece_colors, piece_dim, piece_loc, piece_proj) =
 			if let Some(d) = pieces::init(p, field_size, &field_blocks) {
 				d
 			} else {
-				return Err(PError::from("Piece couldn't be spawned."));
+				return Err(Error::from("Piece couldn't be spawned."));
 			};
 
 		let p = size::new_resize(dim, field_size);
@@ -95,20 +90,19 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 			rfield_rect,
 			rblocks_texture,
 			lua_ctx,
-			lua_logic,
 		})
 	}
 }
 
 impl TetrisState<'_, '_, '_>
 {
-	fn respawn_piece(&mut self) -> Result<bool, PError>
+	fn respawn_piece(&mut self) -> Result<bool, Error>
 	{
 		let fb = &self.field_blocks;
 		let fs = self.field_size;
-		let l = &self.lua_logic;
+		let l = &self.lua_ctx;
 
-		let p = gen::spawn_piece(&l[LogicIndex::SpawnPiece])?;
+		let p = gen::spawn_piece(&l)?;
 
 		if let Some((pb, pc, pd, pp, pj)) = pieces::spawn_new(p, fs, fb) {
 			self.piece_blocks = pb;
@@ -150,7 +144,7 @@ impl TetrisState<'_, '_, '_>
 			.unwrap();
 	}
 
-	fn drop(&mut self, canvas: &mut WindowCanvas) -> Result<bool, PError>
+	fn drop(&mut self, canvas: &mut WindowCanvas) -> Result<bool, Error>
 	{
 		let pj = self.piece_proj;
 
@@ -190,7 +184,7 @@ impl TetrisState<'_, '_, '_>
 		}
 	}
 
-	fn move_piece_down(&mut self, canvas: &mut WindowCanvas) -> Result<bool, PError>
+	fn move_piece_down(&mut self, canvas: &mut WindowCanvas) -> Result<bool, Error>
 	{
 		let fb = &self.field_blocks;
 		let fs = self.field_size;
@@ -263,7 +257,7 @@ pub fn handle_event(
 	event: &Event,
 	canvas: &mut WindowCanvas,
 	state: &mut TetrisState,
-) -> Result<bool, PError>
+) -> Result<bool, Error>
 {
 	match event {
 		Event::KeyDown {

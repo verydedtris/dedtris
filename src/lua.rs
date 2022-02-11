@@ -2,58 +2,62 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-use log::{error, info};
+use log::info;
 
-use crate::error::PError;
-use crate::{err, propagate};
-
-// -----------------------------------------------------------------------------
-// Error
-// -----------------------------------------------------------------------------
-
-pub struct Error {}
-
-impl From<std::io::Error> for Error
-{
-	fn from(e: std::io::Error) -> Self
-	{
-		error!("Theme load error: {}", e);
-		Self {}
-	}
-}
-
-impl From<rlua::Error> for Error
-{
-	fn from(e: rlua::Error) -> Self
-	{
-		error!("Lua load error: {}", e);
-		Self {}
-	}
-}
-
-impl From<&str> for Error
-{
-	fn from(e: &str) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
+use crate::error::Error;
+use crate::err;
 
 // -----------------------------------------------------------------------------
 // Lua routines
 // -----------------------------------------------------------------------------
 
-pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<(), PError>
+pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<(), Error>
 {
-	let mut file = propagate!(File::open(path));
+	let mut file = File::open(path)?;
 
 	let mut buffer = Vec::new();
-	let s = propagate!(file.read_to_end(&mut buffer));
+	let s = file.read_to_end(&mut buffer)?;
 
-    info!("Loaded file \"{}\" with size {} Bytes.", path.display(), s);
+	info!("Loaded file \"{}\" with size {} Bytes.", path.display(), s);
 
-	propagate!(ctx.load(&buffer).exec());
+	ctx.load(&buffer).exec()?;
 
 	Ok(())
+}
+
+pub fn find_function<'a>(table: &rlua::Table<'a>, name: &str)
+	-> Result<rlua::Function<'a>, Error>
+{
+	Ok(err!(
+		table.get::<_, rlua::Function>(name),
+		"Function \"{}\" not found.",
+		name
+	))
+}
+
+pub fn find_int(table: &rlua::Table, name: &str) -> Result<i64, Error>
+{
+	Ok(err!(
+		table.get::<_, rlua::Integer>(name),
+		"Integer \"{}\" not found.",
+		name
+	))
+}
+
+pub fn find_string<'a>(table: &rlua::Table<'a>, name: &str) -> Result<rlua::String<'a>, Error>
+{
+	Ok(err!(
+		table.get::<_, rlua::String>(name),
+		"String \"{}\" not found.",
+		name
+	))
+}
+
+pub fn find_table<'a>(table: &rlua::Table<'a>, name: &str) -> Result<rlua::Table<'a>, Error>
+{
+	Ok(err!(
+		table.get::<_, rlua::Table>(name),
+		"Table \"{}\" not found.",
+		name
+	))
 }

@@ -1,8 +1,9 @@
+use log::info;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 
-use crate::{err, propagate};
-use crate::error::PError;
+use crate::error::*;
+use crate::lua::*;
 
 use super::theme::parse_pattern;
 
@@ -22,13 +23,19 @@ pub struct Piece
 // Piece generator
 // -----------------------------------------------------------------------------
 
-pub fn spawn_piece(sp: &rlua::Function) -> Result<Piece, PError>
+pub fn spawn_piece(ctx: &rlua::Context) -> Result<Piece, Error>
 {
-    let t = propagate!(sp.call::<_, rlua::Table>(()), "Function \"spawn_piece\"");
+    info!("Spawning piece.");
 
-    let (dim, colors, blocks) = parse_pattern(t)?;
-    let p = Piece { dim, colors, blocks };
+    let g = ctx.globals();
+	let t = find_function(&g, "spawn_piece")?.call::<_, rlua::Table>(())?;
 
-    Ok(p)
+	let (dim, colors, blocks) = parse_pattern(t)?;
+	let p = Piece {
+		dim,
+		colors,
+		blocks,
+	};
+
+	Ok(p)
 }
-
