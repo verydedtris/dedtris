@@ -1,3 +1,4 @@
+use log::info;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
@@ -51,6 +52,9 @@ pub struct TetrisState<'a, 'b, 'c>
 
 	// Lua context
 	lua_ctx: &'c rlua::Context<'b>,
+
+	// Stats
+	score: u64,
 }
 
 impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
@@ -77,6 +81,8 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 		let p = size::new_resize(dim, field_size);
 		let (rblock_size, rfield_rect, rblocks_texture) = drawer::init(tc, p);
 
+		let score = 0;
+
 		Ok(TetrisState {
 			field_blocks,
 			field_colors,
@@ -90,6 +96,7 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 			rfield_rect,
 			rblocks_texture,
 			lua_ctx,
+			score,
 		})
 	}
 }
@@ -98,6 +105,8 @@ impl TetrisState<'_, '_, '_>
 {
 	fn respawn_piece(&mut self) -> Result<bool, Error>
 	{
+		info!("Respawning piece.");
+
 		let fb = &self.field_blocks;
 		let fs = self.field_size;
 		let l = &self.lua_ctx;
@@ -110,14 +119,16 @@ impl TetrisState<'_, '_, '_>
 			self.piece_dim = pd;
 			self.piece_loc = pp;
 			self.piece_proj = pj;
-			return Ok(false);
+			return Ok(true);
 		}
 
-		Ok(true)
+		Ok(false)
 	}
 
 	fn place_piece(&mut self, canvas: &mut WindowCanvas)
 	{
+		info!("Placing piece.");
+
 		let fb = &mut self.field_blocks;
 		let fc = &mut self.field_colors;
 		let pb = &self.piece_blocks;
@@ -146,6 +157,8 @@ impl TetrisState<'_, '_, '_>
 
 	fn drop(&mut self, canvas: &mut WindowCanvas) -> Result<bool, Error>
 	{
+		info!("Dropping piece.");
+
 		let pj = self.piece_proj;
 
 		self.piece_loc.y = pj;
@@ -165,6 +178,8 @@ impl TetrisState<'_, '_, '_>
 		let new_pb: Vec<Point> = pb.iter().map(|b| Point::new(pd as i32 - 1 - b.y, b.x)).collect();
 
 		if field::check_valid_pos(fs, fb, pl, &new_pb) {
+			info!("Rotating piece.");
+
 			let p = pieces::project(fs, fb, pl, &new_pb);
 			self.piece_blocks = new_pb;
 			self.piece_proj = p;
@@ -247,6 +262,11 @@ impl TetrisState<'_, '_, '_>
 			canvas.fill_rect(block).unwrap();
 		}
 	}
+
+	pub fn output_score(&self)
+	{
+		println!("Well done! Your score is {}.", self.score);
+	}
 }
 
 // -----------------------------------------------------------------------------
@@ -272,7 +292,7 @@ pub fn handle_event(
 			}
 
 			Keycode::Down => {
-				state.move_piece_down(canvas)?;
+				return Ok(state.move_piece_down(canvas)?);
 			}
 
 			Keycode::Up => {
@@ -280,7 +300,7 @@ pub fn handle_event(
 			}
 
 			Keycode::Space => {
-				state.drop(canvas)?;
+				return Ok(state.drop(canvas)?);
 			}
 
 			_ => (),

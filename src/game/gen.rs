@@ -25,7 +25,7 @@ pub struct Piece
 
 pub fn spawn_piece(ctx: &rlua::Context) -> Result<Piece, Error>
 {
-    info!("Spawning piece.");
+    info!("Querying \"spawn_piece\".");
 
     let g = ctx.globals();
 	let t = find_function(&g, "spawn_piece")?.call::<_, rlua::Table>(())?;

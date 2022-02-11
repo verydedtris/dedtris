@@ -1,9 +1,11 @@
+use log::info;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 
 use super::field;
 use super::gen;
 
+#[derive(Debug)]
 pub enum Direction {
     DOWN,
     LEFT,
@@ -29,6 +31,8 @@ pub fn spawn_new(
 	field_blocks: &[Point],
 ) -> Option<(Vec<Point>, Vec<Color>, usize, Point, i32)>
 {
+    info!("Spawning piece.");
+
 	let pb = p.blocks;
 	let pc = p.colors;
 	let pd = p.dim;
@@ -67,6 +71,8 @@ pub fn move_piece(
 	d: Direction,
 ) -> Option<(Point, i32)>
 {
+    info!("Moving to {:?}.", d);
+
 	let new_pl = match d {
 		Direction::LEFT => Point::new(pl.x - 1, pl.y),
 		Direction::RIGHT => Point::new(pl.x + 1, pl.y),

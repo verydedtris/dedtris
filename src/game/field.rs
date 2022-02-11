@@ -1,3 +1,4 @@
+use log::info;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 
@@ -27,6 +28,8 @@ pub fn lines_list(fd: (usize, usize), fb: &[Point]) -> Vec<i32>
 
 pub fn clear_lines(fd: (usize, usize), fb: &mut Vec<Point>, fc: &mut Vec<Color>) -> Vec<i32>
 {
+    info!("Removing lines from field.");
+
 	let lines = lines_list(fd, fb);
 
 	let mut removed = 0;
