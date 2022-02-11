@@ -1,104 +1,96 @@
+use std::fmt::Display;
+
 use log::error;
 use rlua::prelude::LuaError;
 
-pub struct Error;
-
-trait Constructable
+pub trait Constructable
 {
 	fn new() -> Self;
 }
 
-macro_rules! create_error {
-	($type:tt, $msg:expr) => {
-		pub struct $type;
+pub struct PError
+{
+	pub msg: String,
+}
 
-		impl Constructable for $type
-		{
-			fn new() -> Self
-			{
-				Self {}
-			}
-		}
+impl Display for PError
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+	{
+		write!(f, "{}", self.msg)
+	}
+}
 
-		impl From<$type> for Error
-		{
-			fn from(_: $type) -> Self
-			{
-				error!($msg);
-				Self {}
-			}
+impl From<&str> for PError
+{
+	fn from(e: &str) -> Self
+	{
+		Self { msg: e.to_string() }
+	}
+}
+
+impl From<String> for PError
+{
+	fn from(e: String) -> Self
+	{
+		Self { msg: e }
+	}
+}
+
+#[macro_export]
+macro_rules! err {
+	($x:expr, $msg:expr) => {
+		if let Ok(x) = $x {
+			x
+		} else {
+			return Err(PError::from($msg));
 		}
 	};
 }
 
-create_error!(
-	LoadDefaultLuaError,
-	"Default lua theme could not be loaded."
-);
+#[macro_export]
+macro_rules! propagate {
+    ($x:expr, $msg:expr, $($param:expr),+) => {
+		match $x {
+			Ok(x) => x,
+			Err(e) => return Err(PError::from(format!("{}: {}", format!($msg, $($param,)+), e))),
+		}
+    };
 
-create_error!(
-	InitGameNotFoundLuaError,
-	"The function \"init_game\" has not been found."
-);
+	($x:expr, $msg:expr) => {
+		match $x {
+			Ok(x) => x,
+			Err(e) => return Err(PError::from(format!("{}: {}", $msg, e))),
+		}
+	};
 
-create_error!(
-	InitGameErrorLuaError,
-	"The function \"init_game\" has a internal error."
-);
-
-impl From<std::io::Error> for Error
-{
-	fn from(e: std::io::Error) -> Self
-	{
-		error!("Theme load error: {}", e);
-		Self {}
-	}
+	($x:expr) => {
+		match $x {
+			Ok(x) => x,
+			Err(e) => return Err(PError::from(format!("{}", e))),
+		}
+	};
 }
 
-impl From<LuaError> for Error
-{
-	fn from(e: LuaError) -> Self
-	{
-		error!("Lua load error: {}", e);
-		Self {}
-	}
-}
+#[macro_export]
+macro_rules! end {
+	($x:expr, $msg:expr) => {
+		match $x {
+			Ok(x) => x,
+			Err(e) => {
+				error!("{}: {}", $msg, e);
+				return;
+			}
+		}
+	};
 
-impl From<&str> for Error
-{
-	fn from(e: &str) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<std::num::TryFromIntError> for Error
-{
-	fn from(e: std::num::TryFromIntError) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-// -----------------------------------------------------------------------------
-// Result Conversion
-// -----------------------------------------------------------------------------
-
-trait ConvError<T, E>
-{
-	fn to_err<O>(self) -> Result<T, O>
-	where
-		O: Constructable;
-}
-
-impl<T, E> ConvError<T, E> for Result<T, E>
-{
-	fn to_err<O>(self) -> Result<T, O>
-	where
-		O: Constructable,
-	{
-		self.map_err(|_| O::new())
-	}
+	($x:expr) => {
+		match $x {
+			Ok(x) => x,
+			Err(e) => {
+				error!("{}", e);
+				return;
+			}
+		}
+	};
 }

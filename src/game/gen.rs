@@ -1,14 +1,10 @@
-use std::ops::Index;
-
-use bitvec::prelude::BitVec;
-use rand::prelude::ThreadRng;
-use rand::seq::SliceRandom;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 
-use crate::error::Error;
+use crate::{err, propagate};
+use crate::error::PError;
 
-use super::theme::{self, parse_pattern};
+use super::theme::parse_pattern;
 
 // -----------------------------------------------------------------------------
 // Piece
@@ -26,9 +22,9 @@ pub struct Piece
 // Piece generator
 // -----------------------------------------------------------------------------
 
-pub fn spawn_piece(sp: &rlua::Function) -> Result<Piece, Error>
+pub fn spawn_piece(sp: &rlua::Function) -> Result<Piece, PError>
 {
-    let t = sp.call::<_, rlua::Table>(())?;
+    let t = propagate!(sp.call::<_, rlua::Table>(()), "Function \"spawn_piece\"");
 
     let (dim, colors, blocks) = parse_pattern(t)?;
     let p = Piece { dim, colors, blocks };

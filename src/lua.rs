@@ -2,7 +2,10 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
-use log::error;
+use log::{error, info};
+
+use crate::error::PError;
+use crate::{err, propagate};
 
 // -----------------------------------------------------------------------------
 // Error
@@ -41,14 +44,16 @@ impl From<&str> for Error
 // Lua routines
 // -----------------------------------------------------------------------------
 
-pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<(), Error>
+pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<(), PError>
 {
-	let mut file = File::open(path)?;
+	let mut file = propagate!(File::open(path));
 
 	let mut buffer = Vec::new();
-	file.read_to_end(&mut buffer)?;
+	let s = propagate!(file.read_to_end(&mut buffer));
 
-	ctx.load(&buffer).exec()?;
+    info!("Loaded file \"{}\" with size {} Bytes.", path.display(), s);
+
+	propagate!(ctx.load(&buffer).exec());
 
 	Ok(())
 }

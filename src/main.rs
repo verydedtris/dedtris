@@ -7,8 +7,8 @@ use log::{error, info};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
-use std::time::Duration;
 use std::path::Path;
+use std::time::Duration;
 
 use crate::game::{draw, handle_event, TetrisState};
 
@@ -16,27 +16,6 @@ mod error;
 mod file;
 mod game;
 mod lua;
-
-macro_rules! init {
-	($system:expr, $msg:expr) => {
-		match $system {
-			Ok(v) => v,
-			Err(e) => {
-				error!($msg, e);
-				return;
-			}
-		}
-	};
-
-	($system:expr) => {
-		match $system {
-			Ok(v) => v,
-			Err(_) => {
-				return;
-			}
-		}
-	};
-}
 
 fn main()
 {
@@ -47,27 +26,32 @@ fn main()
 	// Init SDL2 and its window system
 
 	info!("Initializing SDL2 and its subsystems.");
-	let sdl_context = init!(sdl2::init(), "Couldn't initialize SDL2: {}");
-	let video_subsystem = init!(
+
+	let sdl_context = end!(sdl2::init(), "Couldn't initialize SDL2");
+
+	let video_subsystem = end!(
 		sdl_context.video(),
-		"Couldn't initialize SDL2 videosubsystem: {}"
+		"Couldn't initialize SDL2 videosubsystem"
 	);
 
 	info!("Constructing window.");
-	let window = init!(
+
+	let window = end!(
 		video_subsystem
 			.window("Tetris", 800, 600)
 			.position_centered()
 			//.resizable() // Simpler to debug
 			.build(),
-		"Couldn't create window: {}"
+		"Couldn't create window"
 	);
 
 	info!("Constructing renderer for window.");
-	let mut canvas = init!(
+
+	let mut canvas = end!(
 		window.into_canvas().accelerated().target_texture().build(),
-		"Couldn't construct renderer: {}"
+		"Couldn't construct renderer"
 	);
+
 	let texture_creator = canvas.texture_creator();
 
 	canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
@@ -89,13 +73,14 @@ fn main()
 	lua.context(|ctx| {
 		// Load theme file
 
-        init!(game::load_default(&ctx));
-		init!(lua::exec_file(&ctx, path));
+		end!(game::load_default(&ctx), "Loading defaults");
+		end!(lua::exec_file(&ctx, path), "Running theme");
 
 		// Init Game
 
 		info!("Initializing tetris game.");
-		let mut game = init!(TetrisState::init(
+
+		let mut game = end!(TetrisState::init(
 			&texture_creator,
 			canvas.output_size().unwrap(),
 			&ctx

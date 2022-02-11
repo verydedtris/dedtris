@@ -7,19 +7,13 @@ use sdl2::rect::Point;
 use std::convert::TryFrom;
 use std::ops::Index;
 
-use crate::error::Error;
+use crate::err;
+use crate::error::*;
+use crate::propagate;
 
 // -----------------------------------------------------------------------------
 // Parse Structures
 // -----------------------------------------------------------------------------
-
-#[derive(Debug, Default)]
-pub struct Pattern
-{
-	pub dim: usize,
-	pub colors: Vec<Color>,
-	pub template: BitVec,
-}
 
 pub enum LogicIndex
 {
@@ -56,15 +50,41 @@ pub struct Theme<'a>
 // Block Parsing
 // -----------------------------------------------------------------------------
 
-pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme<'a>, Error>
+pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme<'a>, PError>
 {
 	let g = ctx.globals();
-	let init = g.get::<_, rlua::Function<'a>>("init_game")?.call::<_, rlua::Table>(())?;
 
-	let width = usize::try_from(init.get::<_, LuaInteger>("width")?)?;
-	let height = usize::try_from(init.get::<_, LuaInteger>("height")?)?;
+	let init = propagate!(
+		g.get::<_, rlua::Function<'a>>("init_game"),
+		"Function \"init_game\""
+	);
+	let init = propagate!(
+		init.call::<_, rlua::Table>(()),
+		"Function \"init_game\""
+	);
 
-	let game_logic: LogicTable<'a> = [g.get::<_, rlua::Function<'a>>("spawn_piece")?];
+	let width = propagate!(
+		init.get::<_, LuaInteger>("width"),
+		"Output field \"width\""
+	);
+	let width = err!(
+		usize::try_from(width),
+		"Output field \"width\" has a invalid value."
+	);
+
+	let height = propagate!(
+		init.get::<_, LuaInteger>("height"),
+		"Output field \"height\""
+	);
+	let height = err!(
+		usize::try_from(height),
+		"Output field \"height\" has a invalid value."
+	);
+
+	let game_logic: LogicTable<'a> = [propagate!(
+		g.get::<_, rlua::Function<'a>>("spawn_piece"),
+		"Function \"spawn_piece\""
+	)];
 
 	Ok(Theme {
 		bg_color: Color::WHITE,
@@ -79,43 +99,53 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme<'a>, Error>
 // Parsing Functions
 // -----------------------------------------------------------------------------
 
-pub fn parse_pattern(table: LuaTable) -> Result<(usize, Vec<Color>, Vec<Point>), Error>
+pub fn parse_pattern(table: LuaTable) -> Result<(usize, Vec<Color>, Vec<Point>), PError>
 {
-	let dim = table.get::<_, LuaInteger>("size")? as usize;
+	let dim = err!(
+		table.get::<_, LuaInteger>("size"),
+		"Field \"size\" is missing or is invalid."
+	);
+	let dim = err!(usize::try_from(dim), "Field \"size\" has a invalid value.");
 
-	let template = table.get::<_, LuaString>("template")?;
-	let blocks = parse_piece_body(template, dim)?;
+	let template = err!(
+		table.get::<_, LuaString>("template"),
+		"Field \"template\" is missing."
+	);
+	let blocks = propagate!(parse_piece_body(template, dim), "Field \"template\" error");
 
-	let color = table.get::<_, LuaTable>("color")?;
-	let color = parse_piece_color(color)?;
+	let color = err!(
+		table.get::<_, LuaTable>("color"),
+		"Field \"color\" not found or is invalid."
+	);
+	let color = propagate!(parse_piece_color(color), "Field \"color\" error");
 	let colors = vec![color; blocks.len()];
 
 	Ok((dim, colors, blocks))
 }
 
-fn parse_piece_body(data: LuaString, pd: usize) -> Result<Vec<Point>, Error>
+fn parse_piece_body(data: LuaString, pd: usize) -> Result<Vec<Point>, PError>
 {
 	let ps = pd * pd;
 
 	let mut field = Vec::with_capacity(ps);
-    let mut blocks = 0;
+	let mut blocks = 0;
 
 	for (i, c) in data.as_bytes().iter().enumerate() {
 		match c {
 			b'1' => {
 				field.push(Point::new((i % pd) as i32, (i / pd) as i32));
-                blocks += 1;
+				blocks += 1;
 			}
-            b'0' => blocks += 1,
+			b'0' => blocks += 1,
 			b'\n' | b' ' | b'\r' | b'\t' => {}
 			_ => {
-				return Err(Error::from("Characters must be 0's or 1's."));
+				return Err(PError::from("Characters must be 0's or 1's."));
 			}
 		}
 	}
 
 	if ps != blocks {
-		return Err(Error::from(
+		return Err(PError::from(
 			format!(
 				"A piece size doesn't match it's given size. is: {}, should be: {}.",
 				field.len(),
@@ -128,23 +158,16 @@ fn parse_piece_body(data: LuaString, pd: usize) -> Result<Vec<Point>, Error>
 	Ok(field)
 }
 
-fn parse_piece_color(data: LuaTable) -> Result<Color, Error>
+fn parse_piece_color(data: LuaTable) -> Result<Color, PError>
 {
-	let r = data.get::<_, LuaInteger>("r")?;
-	let g = data.get::<_, LuaInteger>("g")?;
-	let b = data.get::<_, LuaInteger>("b")?;
-	let a = data.get::<_, LuaInteger>("a")?;
+	let mut rgba = [0u8; 4];
 
-	let (r, g, b, a) = if let (Ok(r), Ok(g), Ok(b), Ok(a)) = (
-		u8::try_from(r),
-		u8::try_from(g),
-		u8::try_from(b),
-		u8::try_from(a),
-	) {
-		(r, g, b, a)
-	} else {
-		return Err(Error::from("Invald colors."));
-	};
+	for (c, y) in ["r", "g", "b", "a"].iter().zip(rgba.iter_mut()) {
+		let x = err!(data.get::<_, LuaInteger>(*c), "Missing value*s");
+		let x = err!(u8::try_from(x), "Invalid value*s");
 
-	Ok(Color::RGBA(r, g, b, a))
+		*y = x;
+	}
+
+	Ok(Color::RGBA(rgba[0], rgba[1], rgba[2], rgba[3]))
 }
