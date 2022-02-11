@@ -4,8 +4,8 @@ use std::path::Path;
 
 use log::info;
 
-use crate::error::Error;
 use crate::err;
+use crate::error::Error;
 
 // -----------------------------------------------------------------------------
 // Lua routines
@@ -25,12 +25,11 @@ pub fn exec_file(ctx: &rlua::Context, path: &Path) -> Result<(), Error>
 	Ok(())
 }
 
-pub fn find_function<'a>(table: &rlua::Table<'a>, name: &str)
-	-> Result<rlua::Function<'a>, Error>
+pub fn find_function<'a>(table: &rlua::Table<'a>, name: &str) -> Result<rlua::Function<'a>, Error>
 {
 	Ok(err!(
 		table.get::<_, rlua::Function>(name),
-		"Function \"{}\" not found.",
+		"Function \"{}\" not found or is not a function.",
 		name
 	))
 }
@@ -39,7 +38,7 @@ pub fn find_int(table: &rlua::Table, name: &str) -> Result<i64, Error>
 {
 	Ok(err!(
 		table.get::<_, rlua::Integer>(name),
-		"Integer \"{}\" not found.",
+		"Integer \"{}\" not found or is not a integer.",
 		name
 	))
 }
@@ -48,7 +47,7 @@ pub fn find_string<'a>(table: &rlua::Table<'a>, name: &str) -> Result<rlua::Stri
 {
 	Ok(err!(
 		table.get::<_, rlua::String>(name),
-		"String \"{}\" not found.",
+		"String \"{}\" not found or is not a string.",
 		name
 	))
 }
@@ -57,7 +56,7 @@ pub fn find_table<'a>(table: &rlua::Table<'a>, name: &str) -> Result<rlua::Table
 {
 	Ok(err!(
 		table.get::<_, rlua::Table>(name),
-		"Table \"{}\" not found.",
+		"Table \"{}\" not found or is not a table.",
 		name
 	))
 }

@@ -3,11 +3,6 @@ use std::num::TryFromIntError;
 use log::error;
 use rlua::prelude::LuaError;
 
-pub trait Constructable
-{
-	fn new() -> Self;
-}
-
 pub struct Error;
 
 impl From<&str> for Error
@@ -72,30 +67,6 @@ macro_rules! err {
 		}
 	};
 }
-
-// #[macro_export]
-// macro_rules! propagate {
-//     ($x:expr, $msg:expr, $($param:expr),+) => {
-// 		match $x {
-// 			Ok(x) => x,
-// 			Err(e) => return Err(PError::from(format!("{}: {}", format!($msg, $($param,)+), e))),
-// 		}
-//     };
-//
-// 	($x:expr, $msg:expr) => {
-// 		match $x {
-// 			Ok(x) => x,
-// 			Err(e) => return Err(PError::from(format!("{}: {}", $msg, e))),
-// 		}
-// 	};
-//
-// 	($x:expr) => {
-// 		match $x {
-// 			Ok(x) => x,
-// 			Err(e) => return Err(PError::from(format!("{}", e))),
-// 		}
-// 	};
-// }
 
 #[macro_export]
 macro_rules! end {
