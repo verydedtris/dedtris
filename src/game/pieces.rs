@@ -6,23 +6,20 @@ use super::field;
 use super::gen;
 
 #[derive(Debug)]
-pub enum Direction {
-    DOWN,
-    LEFT,
-    RIGHT,
+pub enum Direction
+{
+	DOWN,
+	LEFT,
+	RIGHT,
 }
 
 // -----------------------------------------------------------------------------
 // Movable Piece
 // -----------------------------------------------------------------------------
 
-pub fn init(
-	p: gen::Piece,
-	field_dim: (usize, usize),
-	field_blocks: &[Point],
-) -> Option<(Vec<Point>, Vec<Color>, usize, Point, i32)>
+pub fn init() -> (Vec<Point>, Vec<Color>, usize, Point, i32)
 {
-	spawn_new(p, field_dim, field_blocks)
+	(Vec::new(), Vec::new(), 0, Point::new(0, 0), 0)
 }
 
 pub fn spawn_new(
@@ -31,7 +28,7 @@ pub fn spawn_new(
 	field_blocks: &[Point],
 ) -> Option<(Vec<Point>, Vec<Color>, usize, Point, i32)>
 {
-    info!("Spawning piece.");
+	info!("Spawning piece.");
 
 	let pb = p.blocks;
 	let pc = p.colors;
@@ -71,7 +68,7 @@ pub fn move_piece(
 	d: Direction,
 ) -> Option<(Point, i32)>
 {
-    info!("Moving to {:?}.", d);
+	info!("Moving to {:?}.", d);
 
 	let new_pl = match d {
 		Direction::LEFT => Point::new(pl.x - 1, pl.y),

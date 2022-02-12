@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use log::info;
 use sdl2::event::{Event, WindowEvent};
 use sdl2::keyboard::Keycode;
@@ -20,9 +22,19 @@ mod theme;
 pub fn load_defaults(ctx: &rlua::Context) -> Result<(), Error>
 {
 	ctx.load(
-r#"pieces={[1]={size=4,template=[[0000111100000000]],color={r=68,g=210,b=242,a=0xFF,},},[2]={size=3,template=[[100111000]],color={r=53,g=39,b=145,a=0xFF,},},[3]={size=3,template=[[001111000]],color={r=227,g=133,b=61,a=0xFF,},},[4]={size=2,template=[[1111]],color={r=242,g=210,b=68,a=0xFF,},},[5]={size=3,template=[[011110000]],color={r=49,g=186,b=47,a=0xFF,},},[6]={size=3,template=[[010111000]],color={r=142,g=47,b=186,a=0xFF,},},[7]={size=3,template=[[110011000]],color={r=196,g=47,b=47,a=0xFF,},}}function spawn_piece()local r=math.random(1,#(pieces))return pieces[r]end function init_game()return{width=10,height=20}end math.randomseed(os.time())"#
+r#"pieces={[1]={size=4,template=[[0000111100000000]],color={r=68,g=210,b=242,a=0xFF,},},[2]={size=3,template=[[100111000]],color={r=53,g=39,b=145,a=0xFF,},},[3]={size=3,template=[[001111000]],color={r=227,g=133,b=61,a=0xFF,},},[4]={size=2,template=[[1111]],color={r=242,g=210,b=68,a=0xFF,},},[5]={size=3,template=[[011110000]],color={r=49,g=186,b=47,a=0xFF,},},[6]={size=3,template=[[010111000]],color={r=142,g=47,b=186,a=0xFF,},},[7]={size=3,template=[[110011000]],color={r=196,g=47,b=47,a=0xFF,},}}function spawn_piece(state)local r=math.random(1,#(pieces))return pieces[r]end function init_game()return{width=10,height=20}end math.randomseed(os.time())"#
 	)
 	.exec()?;
+
+	let f = ctx.create_function(|_, data: rlua::LightUserData| {
+		let data: &mut TetrisState = unsafe { &mut *(data.0 as *mut TetrisState) };
+        data.output_score();
+		Ok(())
+	})?;
+
+	let g = ctx.globals();
+
+	g.set("test", f)?;
 
 	Ok(())
 }
@@ -55,7 +67,12 @@ pub struct TetrisState<'a, 'b, 'c>
 
 	// Stats
 	score: u64,
+	time: Instant,
+    lines_cleared: u64,
+    pieces_placed: u64,
 }
+
+impl rlua::UserData for TetrisState<'_, '_, '_> {}
 
 impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 {
@@ -69,21 +86,17 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 
 		let (field_blocks, field_colors, field_size) = field::init(t.field_dim);
 
-		let p = gen::spawn_piece(&lua_ctx)?;
-
-		let (piece_blocks, piece_colors, piece_dim, piece_loc, piece_proj) =
-			if let Some(d) = pieces::init(p, field_size, &field_blocks) {
-				d
-			} else {
-				return Err(Error::from("Piece couldn't be spawned."));
-			};
+		let (piece_blocks, piece_colors, piece_dim, piece_loc, piece_proj) = pieces::init();
 
 		let p = size::new_resize(dim, field_size);
 		let (rblock_size, rfield_rect, rblocks_texture) = drawer::init(tc, p);
 
 		let score = 0;
+		let time = Instant::now();
+        let lines_cleared = 0;
+        let pieces_placed = 0;
 
-		Ok(TetrisState {
+		let mut state = TetrisState {
 			field_blocks,
 			field_colors,
 			field_size,
@@ -97,21 +110,29 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 			rblocks_texture,
 			lua_ctx,
 			score,
-		})
+			time,
+            lines_cleared,
+            pieces_placed
+		};
+
+		if !state.spawn_piece()? {
+			return Err(Error::from("Piece couldn't spawn."));
+		}
+
+		Ok(state)
 	}
 }
 
 impl TetrisState<'_, '_, '_>
 {
-	fn respawn_piece(&mut self) -> Result<bool, Error>
+	fn spawn_piece(&mut self) -> Result<bool, Error>
 	{
 		info!("Respawning piece.");
 
+		let p = gen::spawn_piece(self)?;
+
 		let fb = &self.field_blocks;
 		let fs = self.field_size;
-		let l = &self.lua_ctx;
-
-		let p = gen::spawn_piece(&l)?;
 
 		if let Some((pb, pc, pd, pp, pj)) = pieces::spawn_new(p, fs, fb) {
 			self.piece_blocks = pb;
@@ -141,7 +162,10 @@ impl TetrisState<'_, '_, '_>
 		let fs = self.field_size;
 		let bs = self.rblock_size;
 
-		field::clear_lines(fs, fb, fc);
+		let lines_cleared = field::clear_lines(fs, fb, fc);
+
+        let lc = &mut self.lines_cleared;
+        *lc += lines_cleared.len() as u64;
 
 		let ft = &mut self.rblocks_texture;
 
@@ -153,6 +177,9 @@ impl TetrisState<'_, '_, '_>
 				drawer::draw_blocks(canvas, bs, &fb, &fc);
 			})
 			.unwrap();
+
+        let pp = &mut self.pieces_placed;
+        *pp += 1;
 	}
 
 	pub fn drop(&mut self, canvas: &mut WindowCanvas) -> Result<bool, Error>
@@ -164,7 +191,7 @@ impl TetrisState<'_, '_, '_>
 		self.piece_loc.y = pj;
 
 		self.place_piece(canvas);
-		self.respawn_piece()
+		self.spawn_piece()
 	}
 
 	fn rotate(&mut self)
@@ -213,7 +240,7 @@ impl TetrisState<'_, '_, '_>
 		}
 
 		self.place_piece(canvas);
-		self.respawn_piece()
+		self.spawn_piece()
 	}
 
 	fn draw_field(&self, canvas: &mut WindowCanvas)
@@ -265,7 +292,13 @@ impl TetrisState<'_, '_, '_>
 
 	pub fn output_score(&self)
 	{
-		println!("Well done! Your score is {}.", self.score);
+		println!(
+			"Well done! Here are your stats.\nScore: {}\nTime: {}\nLines cleared: {}\nPieces placed: {}",
+			self.score,
+			self.time.elapsed().as_secs_f64(),
+            self.lines_cleared,
+            self.pieces_placed,
+		);
 	}
 }
 
