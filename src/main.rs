@@ -74,7 +74,7 @@ fn main()
 	if let Err(_) = lua.context::<_, Result<(), Error>>(|ctx| {
 		// Load theme file
 
-		game::load_default(&ctx)?;
+		game::load_defaults(&ctx)?;
 		lua::exec_file(&ctx, path)?;
 
 		// Init Game
