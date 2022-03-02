@@ -236,7 +236,7 @@ impl TetrisState<'_, '_, '_>
 		if let Some((pl, proj)) = pieces::move_piece(fs, fb, pl, pb, Direction::DOWN) {
 			self.piece_loc = pl;
 			self.piece_proj = proj;
-			return Ok(false);
+			return Ok(true);
 		}
 
 		self.place_piece(canvas);
