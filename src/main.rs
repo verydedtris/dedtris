@@ -60,14 +60,7 @@ fn main()
 	canvas.clear();
 	canvas.present();
 
-	// Init Lua runtime
-
-	let path = Path::new("Themes/test.lua");
-
-	info!(
-		"Initializing Lua plugin enviroment and loading {}.",
-		path.display()
-	);
+	info!("Initializing Lua plugin enviroment.",);
 
 	let lua = rlua::Lua::new();
 
@@ -75,13 +68,14 @@ fn main()
 		// Load theme file
 
 		game::load_defaults(&ctx)?;
-		lua::exec_file(&ctx, path)?;
+		lua::exec_file(&ctx, Path::new("Themes/default.lua"))?;
+		lua::exec_file(&ctx, Path::new("Themes/test.lua"))?;
 
 		// Init Game
 
 		info!("Initializing tetris game.");
 
-		let mut game = TetrisState::init(&texture_creator, canvas.output_size().unwrap(), &ctx)?;
+		let mut game = TetrisState::init(&texture_creator, &mut canvas, ctx)?;
 
 		// Event Loop
 

@@ -1,4 +1,3 @@
-use std::ffi::c_void;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -7,7 +6,6 @@ use log::info;
 
 use crate::err;
 use crate::error::Error;
-use crate::game::TetrisState;
 
 // -----------------------------------------------------------------------------
 // Lua routines
