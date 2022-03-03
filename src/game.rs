@@ -1,3 +1,4 @@
+use std::ffi::c_void;
 use std::time::Instant;
 
 use log::info;
@@ -9,6 +10,7 @@ use sdl2::render::{Texture, TextureCreator, WindowCanvas};
 use sdl2::video::WindowContext;
 
 use crate::error::Error;
+use crate::lua::find_function;
 
 use self::pieces::Direction;
 
@@ -18,25 +20,36 @@ mod gen;
 mod pieces;
 mod size;
 mod theme;
+mod theme_api;
 
 pub fn load_defaults(ctx: &rlua::Context) -> Result<(), Error>
 {
 	ctx.load(
-r#"pieces={[1]={size=4,template=[[0000111100000000]],color={r=68,g=210,b=242,a=0xFF,},},[2]={size=3,template=[[100111000]],color={r=53,g=39,b=145,a=0xFF,},},[3]={size=3,template=[[001111000]],color={r=227,g=133,b=61,a=0xFF,},},[4]={size=2,template=[[1111]],color={r=242,g=210,b=68,a=0xFF,},},[5]={size=3,template=[[011110000]],color={r=49,g=186,b=47,a=0xFF,},},[6]={size=3,template=[[010111000]],color={r=142,g=47,b=186,a=0xFF,},},[7]={size=3,template=[[110011000]],color={r=196,g=47,b=47,a=0xFF,},}}function spawn_piece(state)local r=math.random(1,#(pieces))return pieces[r]end function init_game()return{width=10,height=20}end math.randomseed(os.time())"#
+r#"pieces={[1]={size=4,template=[[0000111100000000]],color={r=68,g=210,b=242,a=0xFF,},},[2]={size=3,template=[[100111000]],color={r=53,g=39,b=145,a=0xFF,},},[3]={size=3,template=[[001111000]],color={r=227,g=133,b=61,a=0xFF,},},[4]={size=2,template=[[1111]],color={r=242,g=210,b=68,a=0xFF,},},[5]={size=3,template=[[011110000]],color={r=49,g=186,b=47,a=0xFF,},},[6]={size=3,template=[[010111000]],color={r=142,g=47,b=186,a=0xFF,},},[7]={size=3,template=[[110011000]],color={r=196,g=47,b=47,a=0xFF,},}}function spawn_piece(state)local r=math.random(1,#(pieces))return pieces[r]end function init_game()return{width=10,height=20}end function on_place(state)end math.randomseed(os.time())"#
 	)
 	.exec()?;
 
-	let f = ctx.create_function(|_, data: rlua::LightUserData| {
+	let clear_field = ctx.create_function(|_, data: rlua::LightUserData| {
 		let data: &mut TetrisState = unsafe { &mut *(data.0 as *mut TetrisState) };
-        data.output_score();
+		data.clear_lines();
 		Ok(())
 	})?;
 
 	let g = ctx.globals();
-
-	g.set("test", f)?;
+	g.set("_clearField", clear_field)?;
 
 	Ok(())
+}
+
+pub fn call_lua<'a>(name: &str, state: &mut TetrisState<'_, 'a, '_>) -> Result<rlua::Table<'a>, Error>
+{
+	info!("Querying \"{}\".", name);
+
+    let ctx = &state.lua_ctx;
+	let g = ctx.globals();
+
+	let ptr = state as *mut _ as *mut c_void;
+	Ok(find_function(&g, name)?.call::<_, rlua::Table>(rlua::LightUserData { 0: ptr })?)
 }
 
 // -----------------------------------------------------------------------------
@@ -68,11 +81,9 @@ pub struct TetrisState<'a, 'b, 'c>
 	// Stats
 	score: u64,
 	time: Instant,
-    lines_cleared: u64,
-    pieces_placed: u64,
+	lines_cleared: u64,
+	pieces_placed: u64,
 }
-
-impl rlua::UserData for TetrisState<'_, '_, '_> {}
 
 impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 {
@@ -93,8 +104,8 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 
 		let score = 0;
 		let time = Instant::now();
-        let lines_cleared = 0;
-        let pieces_placed = 0;
+		let lines_cleared = 0;
+		let pieces_placed = 0;
 
 		let mut state = TetrisState {
 			field_blocks,
@@ -111,8 +122,8 @@ impl<'a, 'b, 'c> TetrisState<'a, 'b, 'c>
 			lua_ctx,
 			score,
 			time,
-            lines_cleared,
-            pieces_placed
+			lines_cleared,
+			pieces_placed,
 		};
 
 		if !state.spawn_piece()? {
@@ -129,7 +140,14 @@ impl TetrisState<'_, '_, '_>
 	{
 		info!("Respawning piece.");
 
-		let p = gen::spawn_piece(self)?;
+		let t = call_lua("spawn_piece", self)?;
+
+		let (dim, colors, blocks) = theme::parse_pattern(t)?;
+		let p = gen::Piece {
+			dim,
+			colors,
+			blocks,
+		};
 
 		let fb = &self.field_blocks;
 		let fs = self.field_size;
@@ -146,28 +164,26 @@ impl TetrisState<'_, '_, '_>
 		Ok(false)
 	}
 
-	fn place_piece(&mut self, canvas: &mut WindowCanvas)
+	fn clear_lines(&mut self) -> Vec<i32>
 	{
-		info!("Placing piece.");
-
+		let fs = self.field_size;
 		let fb = &mut self.field_blocks;
 		let fc = &mut self.field_colors;
-		let pb = &self.piece_blocks;
-		let pc = &self.piece_colors;
-		let pl = self.piece_loc;
 
-		fb.extend(pb.iter().map(|b| Point::new(b.x + pl.x, b.y + pl.y)));
-		fc.extend(pc);
+		let lines = field::clear_lines(fs, fb, fc);
 
-		let fs = self.field_size;
-		let bs = self.rblock_size;
+		let lc = &mut self.lines_cleared;
+		*lc += lines.len() as u64;
 
-		let lines_cleared = field::clear_lines(fs, fb, fc);
+		lines
+	}
 
-        let lc = &mut self.lines_cleared;
-        *lc += lines_cleared.len() as u64;
-
+	fn draw_blocks(&mut self, canvas: &mut WindowCanvas)
+	{
 		let ft = &mut self.rblocks_texture;
+		let bs = self.rblock_size;
+		let fb = &self.field_blocks;
+		let fc = &self.field_colors;
 
 		canvas
 			.with_texture_canvas(ft, |canvas| {
@@ -177,9 +193,26 @@ impl TetrisState<'_, '_, '_>
 				drawer::draw_blocks(canvas, bs, &fb, &fc);
 			})
 			.unwrap();
+	}
 
-        let pp = &mut self.pieces_placed;
-        *pp += 1;
+	fn place_piece(&mut self, canvas: &mut WindowCanvas)
+	{
+		info!("Placing piece.");
+
+		let fc = &mut self.field_colors;
+		let fb = &mut self.field_blocks;
+		let pb = &self.piece_blocks;
+		let pc = &self.piece_colors;
+		let pl = self.piece_loc;
+
+		fb.extend(pb.iter().map(|b| Point::new(b.x + pl.x, b.y + pl.y)));
+		fc.extend(pc);
+
+		self.clear_lines();
+		self.draw_blocks(canvas);
+
+		let pp = &mut self.pieces_placed;
+		*pp += 1;
 	}
 
 	pub fn drop(&mut self, canvas: &mut WindowCanvas) -> Result<bool, Error>
