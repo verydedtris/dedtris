@@ -1,5 +1,7 @@
 use sdl2::rect::Rect;
 
+use super::{field, Size};
+
 pub struct ResizePattern
 {
 	pub block_size: u32,
@@ -15,6 +17,24 @@ impl ResizePattern
 			field_rect,
 		}
 	}
+}
+
+pub struct WindowSize
+{
+	w: u32,
+	h: u32,
+}
+
+pub const BLOCK_SIZE: u32 = 32;
+
+pub fn calc_window_size(field_dim: Size) -> WindowSize
+{
+	const THESHOLD: u32 = 20;
+
+	let w = field_dim.0 as u32 * BLOCK_SIZE + 2 * THESHOLD;
+	let h = field_dim.1 as u32 * BLOCK_SIZE + 2 * THESHOLD;
+
+	WindowSize { w, h }
 }
 
 pub fn new_resize(win_dim: (u32, u32), field_dim: (usize, usize)) -> ResizePattern

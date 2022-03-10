@@ -81,6 +81,7 @@ function init_game()
 end
 
 function on_place(state)
+	_solveField(state)
 end
 
 math.randomseed(os.time())

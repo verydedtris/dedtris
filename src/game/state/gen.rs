@@ -8,7 +8,7 @@ use sdl2::rect::Point;
 #[derive(Default)]
 pub struct Piece
 {
-	pub dim: usize,
+	pub dim: u32,
 	pub colors: Vec<Color>,
 	pub blocks: Vec<Point>,
 }

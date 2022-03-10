@@ -2,16 +2,28 @@ use log::info;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 
-pub fn init(field_dim: (usize, usize)) -> (Vec<Point>, Vec<Color>, (usize, usize))
-{
-	let fb = Vec::new();
-	let fc = Vec::new();
-	let d = field_dim;
+use super::Size;
 
-	(fb, fc, d)
+pub struct FieldComponent
+{
+	pub blocks: Vec<Point>,
+	pub colors: Vec<Color>,
+	pub dim: Size,
 }
 
-pub fn lines_list(fd: (usize, usize), fb: &[Point]) -> Vec<i32>
+pub fn init(width: u32, height: u32) -> FieldComponent
+{
+	let blocks = Vec::new();
+	let colors = Vec::new();
+
+	FieldComponent {
+		blocks,
+		colors,
+		dim: (width, height),
+	}
+}
+
+pub fn lines_list(fd: Size, fb: &[Point]) -> Vec<i32>
 {
 	count_lines(fd.1, fb)
 		.iter()
@@ -26,9 +38,9 @@ pub fn lines_list(fd: (usize, usize), fb: &[Point]) -> Vec<i32>
 		.collect()
 }
 
-pub fn clear_lines(fd: (usize, usize), fb: &mut Vec<Point>, fc: &mut Vec<Color>) -> Vec<i32>
+pub fn clear_lines(fd: Size, fb: &mut Vec<Point>, fc: &mut Vec<Color>) -> Vec<i32>
 {
-    info!("Removing lines from field.");
+	info!("Removing lines from field.");
 
 	let lines = lines_list(fd, fb);
 
@@ -52,7 +64,7 @@ pub fn clear_lines(fd: (usize, usize), fb: &mut Vec<Point>, fc: &mut Vec<Color>)
 }
 
 pub fn check_valid_pos(
-	field_dim: (usize, usize),
+	field_dim: Size,
 	field_blocks: &[Point],
 	pos: Point,
 	blocks: &[Point],
@@ -68,9 +80,9 @@ pub fn check_valid_pos(
 	})
 }
 
-pub fn count_lines(height: usize, blocks: &[Point]) -> Vec<i32>
+pub fn count_lines(height: u32, blocks: &[Point]) -> Vec<i32>
 {
-	let mut lines = vec![0i32; height];
+	let mut lines = vec![0i32; height as usize];
 
 	for b in blocks {
 		lines[b.y as usize] += 1;

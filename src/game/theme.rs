@@ -4,7 +4,6 @@ use sdl2::pixels::Color;
 use sdl2::rect::Point;
 
 use std::convert::TryFrom;
-use std::ops::Index;
 
 use crate::lua::*;
 use crate::error::*;
@@ -12,24 +11,6 @@ use crate::error::*;
 // -----------------------------------------------------------------------------
 // Parse Structures
 // -----------------------------------------------------------------------------
-
-pub enum LogicIndex
-{
-	SpawnPiece,
-	All,
-}
-
-pub type LogicTable<'a> = [rlua::Function<'a>; LogicIndex::All as usize];
-
-impl<'a> Index<LogicIndex> for LogicTable<'a>
-{
-	type Output = rlua::Function<'a>;
-
-	fn index(&self, index: LogicIndex) -> &Self::Output
-	{
-		&self[index as usize]
-	}
-}
 
 #[derive(Debug)]
 pub struct Theme
@@ -39,7 +20,7 @@ pub struct Theme
 	pub field_bg_color: Color,
 	pub field_edge_color: Color,
 
-	pub field_dim: (usize, usize),
+	pub field_dim: (u32, u32),
 }
 
 // -----------------------------------------------------------------------------
@@ -54,8 +35,8 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 
 	let init = find_function(&g, "init_game")?.call::<_, rlua::Table>(())?;
 
-	let width = usize::try_from(init.get::<_, LuaInteger>("width")?)?;
-	let height = usize::try_from(init.get::<_, LuaInteger>("height")?)?;
+	let width = u32::try_from(init.get::<_, LuaInteger>("width")?)?;
+	let height = u32::try_from(init.get::<_, LuaInteger>("height")?)?;
 
 	Ok(Theme {
 		bg_color: Color::WHITE,
@@ -69,9 +50,9 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 // Parsing Functions
 // -----------------------------------------------------------------------------
 
-pub fn parse_pattern(table: LuaTable) -> Result<(usize, Vec<Color>, Vec<Point>), Error>
+pub fn parse_pattern(table: LuaTable) -> Result<(u32, Vec<Color>, Vec<Point>), Error>
 {
-	let dim = usize::try_from(find_int(&table, "size")?)?;
+	let dim = u32::try_from(find_int(&table, "size")?)?;
 
 	let blocks = parse_piece_body(find_string(&table, "template")?, dim)?;
 
@@ -81,17 +62,17 @@ pub fn parse_pattern(table: LuaTable) -> Result<(usize, Vec<Color>, Vec<Point>),
 	Ok((dim, colors, blocks))
 }
 
-fn parse_piece_body(data: LuaString, pd: usize) -> Result<Vec<Point>, Error>
+fn parse_piece_body(data: LuaString, pd: u32) -> Result<Vec<Point>, Error>
 {
 	let ps = pd * pd;
 
-	let mut field = Vec::with_capacity(ps);
+	let mut field = Vec::with_capacity(ps as usize);
 	let mut blocks = 0;
 
 	for (i, c) in data.as_bytes().iter().enumerate() {
 		match c {
 			b'1' => {
-				field.push(Point::new((i % pd) as i32, (i / pd) as i32));
+				field.push(Point::new((i % pd as usize) as i32, (i / pd as usize) as i32));
 				blocks += 1;
 			}
 			b'0' => blocks += 1,

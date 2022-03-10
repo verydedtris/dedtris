@@ -1,14 +1,20 @@
 local bag = {}
 
-local function regen_bag()
-	for i = 1, 2 * #pieces, 1 do
-		bag[i] = (i - 1) % 7 + 1
+local function shuffle(bag)
+	for i = #bag, 2, -1 do
+		local j = math.random(i)
+		bag[i], bag[j] = bag[j], bag[i]
 	end
+
+	return bag
 end
 
 function spawn_piece(state)
 	if #bag == 0 then
-		regen_bag()
+		for i = 1, 2 * #pieces, 1 do
+			bag[i] = (i - 1) % 7 + 1
+		end
+		shuffle(bag)
 	end
 
 	local p = bag[#bag]
