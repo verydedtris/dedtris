@@ -3,20 +3,26 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{Texture, TextureCreator, WindowCanvas};
 use sdl2::video::WindowContext;
 
+use crate::error::Error;
+
 use super::size::ResizePattern;
+use super::theme::Theme;
+use super::Framework;
 
-pub fn init<'a>(tc: &'a TextureCreator<WindowContext>, p: ResizePattern) -> (u32, Rect, Texture<'a>)
+pub fn init<'a>(tc: &'a TextureCreator<WindowContext>, p: ResizePattern)
+	-> (u32, Rect, Texture<'a>)
 {
-    let bs = p.block_size;
-    let fr = p.field_rect;
-    let ft = gen_field(tc, (fr.w as u32, fr.h as u32));
+	let bs = p.block_size;
+	let fr = p.field_rect;
+	let ft = gen_field(tc, (fr.w as u32, fr.h as u32));
 
-    (bs, fr, ft)
+	(bs, fr, ft)
 }
 
 pub fn gen_field<'a>(tc: &'a TextureCreator<WindowContext>, dim: (u32, u32)) -> Texture<'a>
 {
-	tc.create_texture_target(None, dim.0 as u32, dim.1 as u32).unwrap()
+	tc.create_texture_target(None, dim.0 as u32, dim.1 as u32)
+		.unwrap()
 }
 
 pub fn draw_blocks(canvas: &mut WindowCanvas, bs: u32, blocks: &[Point], colors: &[Color])
@@ -31,14 +37,14 @@ pub fn draw_blocks(canvas: &mut WindowCanvas, bs: u32, blocks: &[Point], colors:
 
 pub struct Renderer<'a>
 {
-	block_size: u32,
+	pub block_size: u32,
 
 	// block_template: Texture<'a>,
-	field_rect: Rect,
-	field_bg_color: Color,
-	field_border_color: Color,
+	pub field_rect: Rect,
+	pub field_bg_color: Color,
+	pub field_border_color: Color,
 
-	pieces_texture: Texture<'a>,
+	pub pieces_texture: Texture<'a>,
 	// fall_piece_locs: Vec<Point>,
 }
 
@@ -78,8 +84,9 @@ pub fn init_renderer<'a>(
 	let field_bg_color = Color::BLACK;
 	let field_border_color = Color::GRAY;
 
-	let pieces_texture =
-		tc.create_texture_target(None, field_rect.w as u32, field_rect.h as u32).unwrap();
+	let pieces_texture = tc
+		.create_texture_target(None, field_rect.w as u32, field_rect.h as u32)
+		.unwrap();
 
 	Ok(Renderer::<'a> {
 		block_size,
@@ -90,20 +97,38 @@ pub fn init_renderer<'a>(
 	})
 }
 
-// fn draw_blocks(&mut self, canvas: &mut WindowCanvas)
+// pub fn draw_player(&self, canvas: &mut WindowCanvas)
 // {
-// 	let ft = &mut self.rblocks_texture;
+// 	let pcs = &self.piece_colors;
+// 	let pbs = &self.piece_blocks;
+// 	let fr = self.rfield_rect;
 // 	let bs = self.rblock_size;
-// 	let fb = &self.field_blocks;
-// 	let fc = &self.field_colors;
+// 	let pos = self.piece_loc;
+// 	let proj = self.piece_proj;
 //
-// 	canvas
-// 		.with_texture_canvas(ft, |canvas| {
-// 			canvas.set_draw_color(Color::RGBA(0, 0, 0, 0));
-// 			canvas.clear();
+// 	debug_assert_eq!(pcs.len(), pbs.len());
 //
-// 			drawer::draw_blocks(canvas, bs, &fb, &fc);
-// 		})
-// 		.unwrap();
+// 	for (c, b) in pcs.iter().zip(pbs) {
+// 		let color = Color::RGBA(c.r, c.g, c.b, c.a / 2);
+// 		let block = Rect::new(
+// 			fr.x + (b.x + pos.x) * bs as i32,
+// 			fr.y + (b.y + proj) * bs as i32,
+// 			bs,
+// 			bs,
+// 		);
+//
+// 		canvas.set_draw_color(color);
+// 		canvas.fill_rect(block).unwrap();
+//
+// 		let color = *c;
+// 		let block = Rect::new(
+// 			fr.x + (b.x + pos.x) * bs as i32,
+// 			fr.y + (b.y + pos.y) * bs as i32,
+// 			bs,
+// 			bs,
+// 		);
+//
+// 		canvas.set_draw_color(color);
+// 		canvas.fill_rect(block).unwrap();
+// 	}
 // }
-

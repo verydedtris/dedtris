@@ -1,23 +1,21 @@
-use std::path::Path;
-use std::time::{Duration, Instant};
+use std::{
+	path::Path,
+	time::{Duration, Instant},
+};
 
 use log::info;
-use sdl2::event::{Event, WindowEvent};
-use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
-use sdl2::render::{Texture, TextureCreator, WindowCanvas};
-use sdl2::video::WindowContext;
-use sdl2::{Sdl, VideoSubsystem};
+use sdl2::{
+	event::{Event, WindowEvent},
+	keyboard::Keycode,
+	pixels::Color,
+	rect::{Point, Rect},
+	render::{Texture, TextureCreator, WindowCanvas},
+	video::WindowContext,
+	Sdl, VideoSubsystem,
+};
 
-use crate::error::Error;
-use crate::lua;
-
-use self::field::FieldComponent;
-use self::pieces::{Direction, MoveablePieceComponent};
-use self::state::TetrisState;
-use self::theme::Theme;
-use self::theme_api::StateData;
+use self::{drawer::Renderer, state::TetrisState, theme_api::StateData};
+use crate::{error::Error, lua};
 
 mod drawer;
 mod state;
@@ -32,7 +30,7 @@ pub fn load_defaults(ctx: &rlua::Context) -> Result<(), Error>
 		let StateData { game, .. }: &mut StateData =
 			unsafe { &mut *(data.0 as *mut theme_api::StateData) };
 
-		let v = clear_lines(game);
+		let v = state::clear_lines(game);
 
 		Ok(v)
 	})?;
@@ -55,11 +53,11 @@ pub fn load_defaults(ctx: &rlua::Context) -> Result<(), Error>
 
 pub struct Framework<'a, 'b, 'd, 'e, 'f, 'g>
 {
-	sdl: &'a Sdl,
-	video: &'b VideoSubsystem,
-	canvas: &'d mut WindowCanvas,
+	sdl:       &'a Sdl,
+	video:     &'b VideoSubsystem,
+	canvas:    &'d mut WindowCanvas,
 	tex_maker: &'e TextureCreator<WindowContext>,
-	lua: &'f rlua::Context<'g>,
+	lua:       &'f rlua::Context<'g>,
 }
 
 // -----------------------------------------------------------------------------
@@ -91,11 +89,11 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 	lua.context::<_, Result<(), Error>>(|ctx| {
 		let mut fw = Framework {
-			sdl: sdl_context,
-			video: video_sys,
-			canvas: &mut canvas,
+			sdl:       sdl_context,
+			video:     video_sys,
+			canvas:    &mut canvas,
 			tex_maker: &tex_maker,
-			lua: &ctx,
+			lua:       &ctx,
 		};
 
 		// Load theme file
@@ -112,8 +110,8 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		let t = theme::load(&lua_ctx)?;
 
-		let mut game = init_game(&fw, &t)?;
-		let mut renderer = init_renderer(&fw, &t)?;
+		let mut game = state::init_game(&fw, &t)?;
+		let mut renderer = drawer::init_renderer(&fw, &t)?;
 
 		// Event Loop
 
@@ -143,7 +141,7 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 						if !handle_event(&event, &fw, &mut game)? {
 							break 'running;
 						}
-					}
+					},
 				}
 			}
 
@@ -159,6 +157,37 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		Ok(())
 	})
+}
+
+fn draw_blocks<'a>(fw: &Framework, state: &TetrisState, drawer: &Renderer<'a>)
+{
+	let ft = &mut drawer.pieces_texture;
+	let bs = drawer.block_size;
+	let fb = &state.field_blocks;
+	let fc = &state.field_colors;
+
+	let c = fw.canvas;
+
+	c.with_texture_canvas(ft, |c| {
+		c.set_draw_color(Color::RGBA(0, 0, 0, 0));
+		c.clear();
+
+		drawer::draw_blocks(c, bs, &fb, &fc);
+	})
+	.unwrap();
+}
+
+pub fn draw_field<'a>(fw: &Framework, drawer: &Renderer<'a>)
+{
+	let fr = drawer.field_rect;
+	let bt = &drawer.pieces_texture;
+
+	let c = fw.canvas;
+
+	c.set_draw_color(Color::BLACK);
+	c.fill_rect(fr).unwrap();
+
+	c.copy(bt, None, fr).unwrap();
 }
 
 pub fn place_piece(state: &mut TetrisState, fw: &Framework) -> Result<(), Error>
@@ -196,38 +225,6 @@ pub fn drop(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
 	spawn_piece(state, fw)
 }
 
-fn rotate(state: &mut TetrisState)
-{
-	let fb = &state.field_blocks;
-	let fs = state.field_size;
-	let pb = &state.piece_blocks;
-	let pl = state.piece_loc;
-	let pd = state.piece_dim;
-
-	let new_pb: Vec<Point> = pb.iter().map(|b| Point::new(pd as i32 - 1 - b.y, b.x)).collect();
-
-	if field::check_valid_pos(fs, fb, pl, &new_pb) {
-		info!("Rotating piece.");
-
-		let p = pieces::project(fs, fb, pl, &new_pb);
-		state.piece_blocks = new_pb;
-		state.piece_proj = p;
-	}
-}
-
-fn move_piece(state: &mut TetrisState, d: Direction)
-{
-	let fb = &state.field_blocks;
-	let fs = state.field_size;
-	let pb = &state.piece_blocks;
-	let pl = state.piece_loc;
-
-	if let Some((pl, proj)) = pieces::move_piece(fs, fb, pl, pb, d) {
-		state.piece_loc = pl;
-		state.piece_proj = proj;
-	}
-}
-
 fn move_piece_down(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
 {
 	let fb = &state.field_blocks;
@@ -245,62 +242,17 @@ fn move_piece_down(state: &mut TetrisState, fw: &Framework) -> Result<bool, Erro
 	spawn_piece(state, fw)
 }
 
-// fn draw_field(&self, canvas: &mut WindowCanvas)
-// {
-// 	let fr = self.rfield_rect;
-// 	let bt = &self.rblocks_texture;
-//
-// 	canvas.set_draw_color(Color::BLACK);
-// 	canvas.fill_rect(fr).unwrap();
-//
-// 	canvas.copy(bt, None, fr).unwrap();
-// }
-//
-// pub fn draw_player(&self, canvas: &mut WindowCanvas)
-// {
-// 	let pcs = &self.piece_colors;
-// 	let pbs = &self.piece_blocks;
-// 	let fr = self.rfield_rect;
-// 	let bs = self.rblock_size;
-// 	let pos = self.piece_loc;
-// 	let proj = self.piece_proj;
-//
-// 	debug_assert_eq!(pcs.len(), pbs.len());
-//
-// 	for (c, b) in pcs.iter().zip(pbs) {
-// 		let color = Color::RGBA(c.r, c.g, c.b, c.a / 2);
-// 		let block = Rect::new(
-// 			fr.x + (b.x + pos.x) * bs as i32,
-// 			fr.y + (b.y + proj) * bs as i32,
-// 			bs,
-// 			bs,
-// 		);
-//
-// 		canvas.set_draw_color(color);
-// 		canvas.fill_rect(block).unwrap();
-//
-// 		let color = *c;
-// 		let block = Rect::new(
-// 			fr.x + (b.x + pos.x) * bs as i32,
-// 			fr.y + (b.y + pos.y) * bs as i32,
-// 			bs,
-// 			bs,
-// 		);
-//
-// 		canvas.set_draw_color(color);
-// 		canvas.fill_rect(block).unwrap();
-// 	}
-// }
-
 pub fn output_score(state: &TetrisState)
 {
 	println!(
-			"Well done! Here are your stats.\nScore: {}\nTime: {}\nLines cleared: {}\nPieces placed: {}",
-			state.lines_cleared as f64 / (state.time.elapsed().as_secs_f64() * state.pieces_placed as f64),
-			state.time.elapsed().as_secs_f64(),
-            state.lines_cleared,
-            state.pieces_placed,
-		);
+		"Well done! Here are your stats.\nScore: {}\nTime: {}\nLines cleared: {}\nPieces placed: \
+		 {}",
+		state.lines_cleared as f64
+			/ (state.time.elapsed().as_secs_f64() * state.pieces_placed as f64),
+		state.time.elapsed().as_secs_f64(),
+		state.lines_cleared,
+		state.pieces_placed,
+	);
 }
 
 // -----------------------------------------------------------------------------
@@ -315,23 +267,23 @@ pub fn handle_event(event: &Event, fw: &Framework, state: &mut TetrisState) -> R
 		} => match x {
 			Keycode::Left => {
 				move_piece(state, Direction::LEFT);
-			}
+			},
 
 			Keycode::Right => {
 				move_piece(state, Direction::RIGHT);
-			}
+			},
 
 			Keycode::Down => {
 				return Ok(move_piece_down(state, fw)?);
-			}
+			},
 
 			Keycode::Up => {
 				rotate(state);
-			}
+			},
 
 			Keycode::Space => {
 				return Ok(drop(state, fw)?);
-			}
+			},
 
 			_ => (),
 		},
@@ -340,8 +292,9 @@ pub fn handle_event(event: &Event, fw: &Framework, state: &mut TetrisState) -> R
 			win_event: WindowEvent::Resized(w, h),
 			..
 		} => {
-			// set_layout_size(&mut self.draw_cache, &self.field, (*w as u32, *h as u32));
-		}
+			// set_layout_size(&mut self.draw_cache, &self.field, (*w as u32, *h
+			// as u32));
+		},
 
 		_ => (),
 	}

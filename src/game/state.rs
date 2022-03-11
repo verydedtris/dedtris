@@ -1,26 +1,36 @@
 use std::time::Instant;
 
-use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
-use sdl2::render::Texture;
+use log::info;
+use sdl2::{pixels::Color, rect::Point};
 
-use super::Size;
+use self::{
+	field::FieldComponent,
+	pieces::{Direction, MoveablePieceComponent},
+};
+use super::{theme::Theme, Framework, Size};
+use crate::{
+	error::Error,
+	game::{theme, theme_api},
+};
 
+mod field;
+mod gen;
+mod pieces;
 
 pub struct TetrisState
 {
 	// Field
 	pub field_blocks: Vec<Point>,
 	pub field_colors: Vec<Color>,
-	pub field_size: Size,
+	pub field_size:   Size,
 
 	// Piece view
 	// piece_view_pieces: Vec<gen::Piece>,
 
 	// Piece
-	pub piece_proj: i32,
-	pub piece_loc: Point,
-	pub piece_dim: u32,
+	pub piece_proj:   i32,
+	pub piece_loc:    Point,
+	pub piece_dim:    u32,
 	pub piece_blocks: Vec<Point>,
 	pub piece_colors: Vec<Color>,
 
@@ -31,7 +41,7 @@ pub struct TetrisState
 	// rtextures: Vec<Texture<'a>>,
 
 	// Stats
-	pub time: Instant,
+	pub time:          Instant,
 	pub lines_cleared: u64,
 	pub pieces_placed: u64,
 
@@ -88,7 +98,7 @@ pub fn init_game(fw: &Framework, t: &Theme) -> Result<TetrisState, Error>
 	Ok(state)
 }
 
-fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
+pub fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
 {
 	info!("Respawning piece.");
 
@@ -123,7 +133,7 @@ fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
 	Ok(false)
 }
 
-fn clear_lines(state: &mut TetrisState) -> Vec<i32>
+pub fn clear_lines(state: &mut TetrisState) -> Vec<i32>
 {
 	let fs = state.field_size;
 	let fb = &mut state.field_blocks;
@@ -135,4 +145,36 @@ fn clear_lines(state: &mut TetrisState) -> Vec<i32>
 	*lc += lines.len() as u64;
 
 	lines
+}
+
+pub fn rotate(state: &mut TetrisState)
+{
+	let fb = &state.field_blocks;
+	let fs = state.field_size;
+	let pb = &state.piece_blocks;
+	let pl = state.piece_loc;
+	let pd = state.piece_dim;
+
+	let new_pb: Vec<Point> = pb.iter().map(|b| Point::new(pd as i32 - 1 - b.y, b.x)).collect();
+
+	if field::check_valid_pos(fs, fb, pl, &new_pb) {
+		info!("Rotating piece.");
+
+		let p = pieces::project(fs, fb, pl, &new_pb);
+		state.piece_blocks = new_pb;
+		state.piece_proj = p;
+	}
+}
+
+pub fn move_piece(state: &mut TetrisState, d: Direction)
+{
+	let fb = &state.field_blocks;
+	let fs = state.field_size;
+	let pb = &state.piece_blocks;
+	let pl = state.piece_loc;
+
+	if let Some((pl, proj)) = pieces::move_piece(fs, fb, pl, pb, d) {
+		state.piece_loc = pl;
+		state.piece_proj = proj;
+	}
 }
