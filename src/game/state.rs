@@ -3,19 +3,21 @@ use std::time::Instant;
 use log::info;
 use sdl2::{pixels::Color, rect::Point};
 
-use self::{
-	field::FieldComponent,
-	pieces::{Direction, MoveablePieceComponent},
-};
-use super::{theme::Theme, Framework, Size};
-use crate::{
-	error::Error,
-	game::{theme, theme_api},
-};
+use self::{field::FieldComponent, pieces::MoveablePieceComponent};
+use super::{theme::Theme, Size};
+use crate::error::Error;
 
 mod field;
 mod gen;
 mod pieces;
+
+#[derive(Debug)]
+pub enum Direction
+{
+	DOWN,
+	LEFT,
+	RIGHT,
+}
 
 pub struct TetrisState
 {
@@ -34,12 +36,6 @@ pub struct TetrisState
 	pub piece_blocks: Vec<Point>,
 	pub piece_colors: Vec<Color>,
 
-	// Drawer
-	// 	rblock_size: u32,
-	// 	rfield_rect: Rect,
-	// 	rblocks_texture: Texture<'a>,
-	// rtextures: Vec<Texture<'a>>,
-
 	// Stats
 	pub time:          Instant,
 	pub lines_cleared: u64,
@@ -49,10 +45,8 @@ pub struct TetrisState
 	pub exit: bool,
 }
 
-pub fn init_game(fw: &Framework, t: &Theme) -> Result<TetrisState, Error>
+pub fn init_game(t: &Theme) -> Result<TetrisState, Error>
 {
-	let lua_ctx = fw.lua;
-
 	let FieldComponent {
 		blocks: field_blocks,
 		colors: field_colors,
@@ -67,16 +61,13 @@ pub fn init_game(fw: &Framework, t: &Theme) -> Result<TetrisState, Error>
 		projection: piece_proj,
 	} = pieces::init();
 
-	// let p = size::new_resize(canvas.output_size().unwrap(), field_size);
-	// let (rblock_size, rfield_rect, rblocks_texture) = drawer::init(tc, p);
-
 	let time = Instant::now();
 	let lines_cleared = 0;
 	let pieces_placed = 0;
 
 	let exit = false;
 
-	let mut state = TetrisState {
+	Ok(TetrisState {
 		field_blocks,
 		field_colors,
 		field_size,
@@ -89,48 +80,7 @@ pub fn init_game(fw: &Framework, t: &Theme) -> Result<TetrisState, Error>
 		lines_cleared,
 		pieces_placed,
 		exit,
-	};
-
-	if !spawn_piece(&mut state, fw)? {
-		return Err(Error::from("Piece couldn't spawn."));
-	}
-
-	Ok(state)
-}
-
-pub fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
-{
-	info!("Respawning piece.");
-
-	let t = theme_api::call_lua("spawn_piece", state, fw)?;
-
-	let (dim, colors, blocks) = theme::parse_pattern(t)?;
-	let p = gen::Piece {
-		dim,
-		colors,
-		blocks,
-	};
-
-	let fb = &state.field_blocks;
-	let fs = state.field_size;
-
-	if let Some(pieces::NewPiece {
-		blocks: pb,
-		colors: pc,
-		dim: pd,
-		pos: pp,
-		projection: pj,
-	}) = pieces::spawn_new(p, fs, fb)
-	{
-		state.piece_blocks = pb;
-		state.piece_colors = pc;
-		state.piece_dim = pd;
-		state.piece_loc = pp;
-		state.piece_proj = pj;
-		return Ok(true);
-	}
-
-	Ok(false)
+	})
 }
 
 pub fn clear_lines(state: &mut TetrisState) -> Vec<i32>
@@ -166,15 +116,58 @@ pub fn rotate(state: &mut TetrisState)
 	}
 }
 
-pub fn move_piece(state: &mut TetrisState, d: Direction)
+pub fn move_piece(state: &mut TetrisState, d: Direction) -> bool
 {
 	let fb = &state.field_blocks;
 	let fs = state.field_size;
 	let pb = &state.piece_blocks;
 	let pl = state.piece_loc;
 
-	if let Some((pl, proj)) = pieces::move_piece(fs, fb, pl, pb, d) {
-		state.piece_loc = pl;
-		state.piece_proj = proj;
+	info!("Moving to {:?}.", d);
+
+	let new_pl = match d {
+		Direction::LEFT => Point::new(pl.x - 1, pl.y),
+		Direction::RIGHT => Point::new(pl.x + 1, pl.y),
+		Direction::DOWN => Point::new(pl.x, pl.y + 1),
+	};
+
+	if field::check_valid_pos(fs, fb, new_pl, pb) {
+		let p = pieces::project(fs, fb, new_pl, pb);
+
+		state.piece_loc = new_pl;
+		state.piece_proj = p;
+
+		true
+	} else {
+		false
 	}
+}
+
+pub fn spawn_piece(
+	state: &mut TetrisState,
+	piece_blocks: Vec<Point>,
+	piece_colors: Vec<Color>,
+	piece_dim: u32,
+) -> bool
+{
+	info!("Spawning piece.");
+
+	let fb = &state.field_blocks;
+	let fs = state.field_size;
+
+	let pos = Point::new(((fs.0 - piece_dim) / 2) as i32, 0);
+
+	if !field::check_valid_pos(fs, fb, pos, &piece_blocks) {
+		return false;
+	}
+
+	let projection = pieces::project(fs, fb, pos, &piece_blocks);
+
+	state.piece_blocks = piece_blocks;
+	state.piece_colors = piece_colors;
+	state.piece_dim = piece_dim;
+	state.piece_loc = pos;
+	state.piece_proj = projection;
+
+	true
 }
