@@ -1,7 +1,4 @@
-use std::{
-	path::Path,
-	time::{Duration, Instant},
-};
+use std::{path::Path, time::Duration};
 
 use log::info;
 use sdl2::{
@@ -9,7 +6,7 @@ use sdl2::{
 	keyboard::Keycode,
 	pixels::Color,
 	rect::{Point, Rect},
-	render::{Texture, TextureCreator, WindowCanvas},
+	render::{TextureCreator, WindowCanvas},
 	video::WindowContext,
 	Sdl, VideoSubsystem,
 };
@@ -17,7 +14,6 @@ use sdl2::{
 use self::{
 	drawer::Renderer,
 	state::{Direction, TetrisState},
-	theme_api::StateData,
 };
 use crate::{error::Error, lua};
 
@@ -27,33 +23,6 @@ mod theme;
 mod theme_api;
 
 type Size = (u32, u32);
-
-pub fn load_defaults(ctx: &rlua::Context) -> Result<(), Error>
-{
-	let solve_field = ctx.create_function(|_, data: rlua::LightUserData| {
-		let StateData { game, .. }: &mut StateData =
-			unsafe { &mut *(data.0 as *mut theme_api::StateData) };
-
-		let v = state::clear_lines(game);
-
-		Ok(v)
-	})?;
-
-	let exit_game = ctx.create_function(|_, data: rlua::LightUserData| {
-		let StateData { game, .. }: &mut StateData =
-			unsafe { &mut *(data.0 as *mut theme_api::StateData) };
-
-		game.exit = true;
-
-		Ok(())
-	})?;
-
-	let g = ctx.globals();
-	g.set("_solveField", solve_field)?;
-	g.set("_finishGame", exit_game)?;
-
-	Ok(())
-}
 
 pub struct Framework<'a, 'b, 'd, 'e, 'f, 'g>
 {
@@ -65,33 +34,53 @@ pub struct Framework<'a, 'b, 'd, 'e, 'f, 'g>
 }
 
 // -----------------------------------------------------------------------------
-// Game State
+// Game Runtime
 // -----------------------------------------------------------------------------
 
+/// Starts a window and plays the tetris game
+///
+/// # Arguments
+///
+/// * `sdl_context` - SDL context
+/// * `video_sys` - Video subsystem
 pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Result<(), Error>
 {
 	info!("Initializing Lua plugin enviroment.",);
 
 	let lua = rlua::Lua::new();
 
-	info!("Constructing window.");
-
-	let window = video_sys
-		.window("Tetris", 800, 600)
-		.position_centered()
-		//.resizable() // Simpler to debug
-		.build()?;
-
-	let mut canvas = window.into_canvas().accelerated().target_texture().build()?;
-
-	let tex_maker = canvas.texture_creator();
-
-	canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-	canvas.set_draw_color(Color::RGB(0, 255, 255));
-	canvas.clear();
-	canvas.present();
-
 	lua.context::<_, Result<(), Error>>(|ctx| {
+		// Load theme file
+
+		theme_api::load_defaults(&ctx)?;
+		lua::exec_file(&ctx, Path::new("Themes/default.lua"))?;
+		lua::exec_file(&ctx, Path::new("Themes/test.lua"))?;
+
+		let t = theme::load(&ctx)?;
+
+		// Construct window
+
+		info!("Constructing window.");
+
+        let size = drawer::calc_window_size(t.field_dim);
+
+		let window = video_sys
+			.window("Tetris", size.w, size.h)
+			.position_centered()
+			//.resizable() // Simpler to debug
+			.build()?;
+
+		let mut canvas = window.into_canvas().accelerated().target_texture().build()?;
+
+		let tex_maker = canvas.texture_creator();
+
+		canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+		canvas.set_draw_color(Color::RGB(0, 255, 255));
+		canvas.clear();
+		canvas.present();
+
+		// Create framework
+
 		let mut fw = Framework {
 			sdl:       sdl_context,
 			video:     video_sys,
@@ -100,19 +89,9 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 			lua:       &ctx,
 		};
 
-		// Load theme file
-
-		let lua_ctx = fw.lua;
-
-		load_defaults(&lua_ctx)?;
-		lua::exec_file(&lua_ctx, Path::new("Themes/default.lua"))?;
-		lua::exec_file(&lua_ctx, Path::new("Themes/test.lua"))?;
-
 		// Init Game
 
 		info!("Initializing tetris game.");
-
-		let t = theme::load(&lua_ctx)?;
 
 		let mut game = state::init_game(&t)?;
 		let mut renderer = drawer::init_renderer(&fw, &t)?;
@@ -197,9 +176,7 @@ pub fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Erro
 }
 
 pub fn place_piece(
-	state: &mut TetrisState,
-	drawer: &mut Renderer<'_>,
-	fw: &mut Framework,
+	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
 ) -> Result<(), Error>
 {
 	info!("Placing piece.");
@@ -224,9 +201,7 @@ pub fn place_piece(
 }
 
 pub fn drop(
-	state: &mut TetrisState,
-	drawer: &mut Renderer<'_>,
-	fw: &mut Framework,
+	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
 ) -> Result<bool, Error>
 {
 	info!("Dropping piece.");
@@ -240,9 +215,7 @@ pub fn drop(
 }
 
 fn move_piece_down(
-	state: &mut TetrisState,
-	drawer: &mut Renderer<'_>,
-	fw: &mut Framework,
+	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
 ) -> Result<bool, Error>
 {
 	if state::move_piece(state, Direction::DOWN) {
@@ -271,10 +244,7 @@ pub fn output_score(state: &TetrisState)
 // -----------------------------------------------------------------------------
 
 pub fn handle_event(
-	event: &Event,
-	fw: &mut Framework,
-	drawer: &mut Renderer<'_>,
-	state: &mut TetrisState,
+	event: &Event, fw: &mut Framework, drawer: &mut Renderer<'_>, state: &mut TetrisState,
 ) -> Result<bool, Error>
 {
 	match event {
@@ -308,8 +278,8 @@ pub fn handle_event(
 			win_event: WindowEvent::Resized(w, h),
 			..
 		} => {
-			// set_layout_size(&mut self.draw_cache, &self.field, (*w as u32, *h
-			// as u32));
+			let fd = state.field_size;
+			drawer::resize_game(drawer, (*w as u32, *h as u32), fd);
 		},
 
 		_ => (),

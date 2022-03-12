@@ -1,12 +1,10 @@
-use log::info;
-use rlua::prelude::*;
-use sdl2::pixels::Color;
-use sdl2::rect::Point;
-
 use std::convert::TryFrom;
 
-use crate::lua::*;
-use crate::error::*;
+use log::info;
+use rlua::prelude::*;
+use sdl2::{pixels::Color, rect::Point};
+
+use crate::{error::*, lua::*};
 
 // -----------------------------------------------------------------------------
 // Parse Structures
@@ -17,7 +15,7 @@ pub struct Theme
 {
 	pub bg_color: Color,
 
-	pub field_bg_color: Color,
+	pub field_bg_color:   Color,
 	pub field_edge_color: Color,
 
 	pub field_dim: (u32, u32),
@@ -39,10 +37,10 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 	let height = u32::try_from(init.get::<_, LuaInteger>("height")?)?;
 
 	Ok(Theme {
-		bg_color: Color::WHITE,
-		field_bg_color: Color::BLACK,
+		bg_color:         Color::WHITE,
+		field_bg_color:   Color::BLACK,
 		field_edge_color: Color::GRAY,
-		field_dim: (width, height),
+		field_dim:        (width, height),
 	})
 }
 
@@ -72,14 +70,17 @@ fn parse_piece_body(data: LuaString, pd: u32) -> Result<Vec<Point>, Error>
 	for (i, c) in data.as_bytes().iter().enumerate() {
 		match c {
 			b'1' => {
-				field.push(Point::new((i % pd as usize) as i32, (i / pd as usize) as i32));
+				field.push(Point::new(
+					(i % pd as usize) as i32,
+					(i / pd as usize) as i32,
+				));
 				blocks += 1;
-			}
+			},
 			b'0' => blocks += 1,
-			b'\n' | b' ' | b'\r' | b'\t' => {}
+			b'\n' | b' ' | b'\r' | b'\t' => {},
 			_ => {
 				return Err(Error::from("Characters must be 0's or 1's."));
-			}
+			},
 		}
 	}
 

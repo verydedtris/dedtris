@@ -4,8 +4,11 @@ use sdl2::{
 	render::{Texture, WindowCanvas},
 };
 
-use super::{theme::Theme, Framework};
+use self::size::ResizePattern;
+use super::{theme::Theme, Framework, Size};
 use crate::error::Error;
+
+mod size;
 
 pub struct Renderer<'a>
 {
@@ -21,40 +24,23 @@ pub struct Renderer<'a>
 }
 
 pub fn init_renderer<'a>(
-	fw: &Framework<'_, '_, '_, 'a, '_, '_>,
-	t: &Theme,
+	fw: &Framework<'_, '_, '_, 'a, '_, '_>, t: &Theme,
 ) -> Result<Renderer<'a>, Error>
 {
 	let window = fw.canvas.window();
 	let tc = fw.tex_maker;
 
-	let field_block_size = t.field_dim;
+	let fs = t.field_dim;
 
-	let (width, height) = window.drawable_size();
-
-	let block_size = {
-		let mut size = 4;
-
-		loop {
-			let new_size = size + 4;
-
-			if new_size * field_block_size.0 > width || new_size * field_block_size.1 > height {
-				break size;
-			}
-
-			size = new_size;
-		}
-	};
-
-	let field_rect = {
-		let (w, h) = (
-			block_size * field_block_size.0,
-			block_size * field_block_size.1,
-		);
-		Rect::new(((width - w) / 2) as i32, ((height - h) / 2) as i32, w, h)
-	};
 	let field_bg_color = Color::BLACK;
 	let field_border_color = Color::GRAY;
+
+	let wd = window.drawable_size();
+
+	let ResizePattern {
+		block_size,
+		field_rect,
+	} = size::new_resize(wd, fs);
 
 	let pieces_texture =
 		tc.create_texture_target(None, field_rect.w as u32, field_rect.h as u32).unwrap();
@@ -66,6 +52,35 @@ pub fn init_renderer<'a>(
 		field_border_color,
 		pieces_texture,
 	})
+}
+
+pub fn resize_game(drawerer: &mut Renderer<'_>, win_dim: (u32, u32), field_dim: Size)
+{
+	let ResizePattern {
+		block_size,
+		field_rect,
+	} = size::new_resize(win_dim, field_dim);
+
+    drawerer.block_size = block_size;
+    drawerer.field_rect = field_rect;
+}
+
+pub struct WindowSize
+{
+	pub w: u32,
+	pub h: u32,
+}
+
+pub fn calc_window_size(field_dim: Size) -> WindowSize
+{
+	const BLOCK_SIZE: u32 = 28;
+
+    let threshold = u32::min(field_dim.0, field_dim.1) * BLOCK_SIZE / 4;
+
+	let w = field_dim.0 * BLOCK_SIZE + threshold;
+	let h = field_dim.1 * BLOCK_SIZE + threshold;
+
+	WindowSize { w, h }
 }
 
 pub fn draw_blocks(canvas: &mut WindowCanvas, bs: u32, blocks: &[Point], colors: &[Color])
