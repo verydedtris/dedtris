@@ -62,12 +62,12 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		info!("Constructing window.");
 
-        let size = drawer::calc_window_size(t.field_dim);
+		let size = drawer::calc_window_size(t.field_dim);
 
 		let window = video_sys
 			.window("Tetris", size.w, size.h)
 			.position_centered()
-			//.resizable() // Simpler to debug
+			.resizable() // Simpler to debug
 			.build()?;
 
 		let mut canvas = window.into_canvas().accelerated().target_texture().build()?;
@@ -243,8 +243,9 @@ pub fn output_score(state: &TetrisState)
 // Game
 // -----------------------------------------------------------------------------
 
-pub fn handle_event(
-	event: &Event, fw: &mut Framework, drawer: &mut Renderer<'_>, state: &mut TetrisState,
+pub fn handle_event<'a>(
+	event: &Event, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>, drawer: &mut Renderer<'a>,
+	state: &mut TetrisState,
 ) -> Result<bool, Error>
 {
 	match event {
@@ -278,8 +279,7 @@ pub fn handle_event(
 			win_event: WindowEvent::Resized(w, h),
 			..
 		} => {
-			let fd = state.field_size;
-			drawer::resize_game(drawer, (*w as u32, *h as u32), fd);
+			resize_game(state, fw, drawer, (*w as u32, *h as u32));
 		},
 
 		_ => (),
@@ -354,4 +354,27 @@ pub fn draw_field(fw: &mut Framework, drawer: &Renderer<'_>)
 	canvas.fill_rect(fr).unwrap();
 
 	canvas.copy(bt, None, fr).unwrap();
+}
+
+pub fn resize_game<'a>(
+	state: &TetrisState, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>, drawer: &mut Renderer<'a>,
+	win_dim: (u32, u32),
+)
+{
+	let fd = state.field_size;
+
+	let drawer::ResizePattern {
+		block_size,
+		field_rect,
+	} = drawer::new_resize(win_dim, fd);
+
+	let tc = fw.tex_maker;
+
+	let new_tex = drawer::recreate_texture(tc, (field_rect.w as u32, field_rect.h as u32));
+
+	drawer.block_size = block_size;
+	drawer.field_rect = field_rect;
+	drawer.pieces_texture = new_tex;
+
+	regen_blocks(fw, &state, drawer);
 }

@@ -1,10 +1,10 @@
 use sdl2::{
 	pixels::Color,
 	rect::{Point, Rect},
-	render::{Texture, WindowCanvas},
+	render::{Texture, TextureCreator, WindowCanvas},
+	video::WindowContext,
 };
 
-use self::size::ResizePattern;
 use super::{theme::Theme, Framework, Size};
 use crate::error::Error;
 
@@ -40,10 +40,9 @@ pub fn init_renderer<'a>(
 	let ResizePattern {
 		block_size,
 		field_rect,
-	} = size::new_resize(wd, fs);
+	} = new_resize(wd, fs);
 
-	let pieces_texture =
-		tc.create_texture_target(None, field_rect.w as u32, field_rect.h as u32).unwrap();
+	let pieces_texture = recreate_texture(tc, (field_rect.w as u32, field_rect.h as u32));
 
 	Ok(Renderer::<'a> {
 		block_size,
@@ -52,17 +51,6 @@ pub fn init_renderer<'a>(
 		field_border_color,
 		pieces_texture,
 	})
-}
-
-pub fn resize_game(drawerer: &mut Renderer<'_>, win_dim: (u32, u32), field_dim: Size)
-{
-	let ResizePattern {
-		block_size,
-		field_rect,
-	} = size::new_resize(win_dim, field_dim);
-
-    drawerer.block_size = block_size;
-    drawerer.field_rect = field_rect;
 }
 
 pub struct WindowSize
@@ -75,12 +63,17 @@ pub fn calc_window_size(field_dim: Size) -> WindowSize
 {
 	const BLOCK_SIZE: u32 = 28;
 
-    let threshold = u32::min(field_dim.0, field_dim.1) * BLOCK_SIZE / 4;
+	let threshold = u32::min(field_dim.0, field_dim.1) * BLOCK_SIZE / 4;
 
 	let w = field_dim.0 * BLOCK_SIZE + threshold;
 	let h = field_dim.1 * BLOCK_SIZE + threshold;
 
 	WindowSize { w, h }
+}
+
+pub fn recreate_texture<'a>(tc: &'a TextureCreator<WindowContext>, field_dim: Size) -> Texture<'a>
+{
+	tc.create_texture_target(None, field_dim.0, field_dim.1).unwrap()
 }
 
 pub fn draw_blocks(canvas: &mut WindowCanvas, bs: u32, blocks: &[Point], colors: &[Color])
@@ -90,5 +83,36 @@ pub fn draw_blocks(canvas: &mut WindowCanvas, bs: u32, blocks: &[Point], colors:
 		let r = Rect::new(b.x * bs as i32, b.y * bs as i32, bs, bs);
 
 		canvas.fill_rect(r).unwrap();
+	}
+}
+
+pub struct ResizePattern
+{
+	pub block_size: u32,
+	pub field_rect: Rect,
+}
+
+pub fn new_resize(win_dim: (u32, u32), field_dim: Size) -> ResizePattern
+{
+	let threshold = size::calc_threshold(win_dim);
+
+	let block_size = u32::min(
+		(win_dim.0 - threshold) / field_dim.0,
+		(win_dim.1 - threshold) / field_dim.1,
+	);
+
+	let field_rect = {
+		let (w, h) = (block_size * field_dim.0, block_size * field_dim.1);
+		Rect::new(
+			((win_dim.0 - w) / 2) as i32,
+			((win_dim.1 - h) / 2) as i32,
+			w,
+			h,
+		)
+	};
+
+	ResizePattern {
+		block_size,
+		field_rect,
 	}
 }
