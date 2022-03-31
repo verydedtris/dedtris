@@ -21,6 +21,8 @@ pub struct Theme
 	pub field_edge_color: Color,
 
 	pub field_dim: (u32, u32),
+
+    pub start_piece: gen::Piece,
 }
 
 // -----------------------------------------------------------------------------
@@ -38,11 +40,14 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 	let width = u32::try_from(init.get::<_, LuaInteger>("width")?)?;
 	let height = u32::try_from(init.get::<_, LuaInteger>("height")?)?;
 
+    let start_piece = parse_pattern(init.get::<_, LuaTable>("start_piece")?)?;
+
 	Ok(Theme {
 		bg_color:         Color::WHITE,
 		field_bg_color:   Color::BLACK,
 		field_edge_color: Color::GRAY,
 		field_dim:        (width, height),
+        start_piece
 	})
 }
 

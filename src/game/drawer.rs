@@ -14,12 +14,12 @@ pub struct Renderer<'a>
 {
 	pub block_size: u32,
 
-	// block_template: Texture<'a>,
 	pub field_rect:         Rect,
 	pub field_bg_color:     Color,
 	pub field_border_color: Color,
 
 	pub pieces_texture: Texture<'a>,
+    // pub player_texture: Texture<'a>,
 }
 
 pub fn init_renderer<'a>(

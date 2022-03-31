@@ -71,13 +71,21 @@ pieces = {
 	}
 }
 
-function spawn_piece(state)
+local function choose_piece()
 	local r = math.random(1, #(pieces))
 	return pieces[r]
 end
 
+function spawn_piece(state)
+	return choose_piece()
+end
+
 function init_game()
-	return { width = 10, height = 20 }
+	return { 
+		width = 10,
+		height = 20,
+		start_piece = choose_piece(),
+	}
 end
 
 function on_place(state)

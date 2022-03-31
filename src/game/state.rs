@@ -42,22 +42,27 @@ pub struct TetrisState
 	pub exit: bool,
 }
 
-pub fn init_game(field_dim: Size) -> Result<TetrisState, Error>
+pub fn init_game(field_dim: Size, start_piece: gen::Piece) -> Result<TetrisState, Error>
 {
+	let field_blocks = Vec::new();
+	let field_colors = Vec::new();
+	let field_size = field_dim;
+
+	let player = match pieces::spawn_piece(&field_blocks, field_dim, start_piece) {
+		Some(v) => v,
+		None => return Err(Error::from("No area for piece.")),
+	};
+
 	Ok(TetrisState {
-		field_blocks: Vec::new(),
-		field_colors: Vec::new(),
-		field_size:   field_dim,
+		field_blocks,
+		field_colors,
+		field_size,
 
-		player_proj:  0,
-		player_pos:   Point::new(0, 0),
-		player_piece: gen::Piece {
-			dim:    0,
-			colors: Vec::new(),
-			blocks: Vec::new(),
-		},
+		player_proj: player.proj,
+		player_pos: player.pos,
+		player_piece: player.piece,
 
-		time:          Instant::now(),
+		time: Instant::now(),
 		lines_cleared: 0,
 		pieces_placed: 0,
 

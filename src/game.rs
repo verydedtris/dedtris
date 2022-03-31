@@ -95,14 +95,8 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		info!("Initializing tetris game.");
 
-		let mut game = state::init_game(t.field_dim)?;
+		let mut game = state::init_game(t.field_dim, t.start_piece)?;
 		let mut renderer = drawer::init_renderer(&fw.tex_maker, window_size, t.field_dim)?;
-
-		if !spawn_piece(&mut game, &fw)? {
-			return Err(Error::from("No area for piece."));
-		}
-
-		println!("{:?}", game.player_piece);
 
 		// Event Loop
 
