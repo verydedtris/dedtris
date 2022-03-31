@@ -80,7 +80,7 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 			println!("{:?}", canvas.info().texture_formats);
 
-            canvas
+			canvas
 		};
 
 		let tex_maker = canvas.texture_creator();
@@ -95,12 +95,14 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		info!("Initializing tetris game.");
 
-		let mut game = state::init_game(&t)?;
+		let mut game = state::init_game(t.field_dim)?;
 		let mut renderer = drawer::init_renderer(&fw, &t)?;
 
 		if !spawn_piece(&mut game, &fw)? {
 			return Err(Error::from("No area for piece."));
 		}
+
+		println!("{:?}", game.player_piece);
 
 		// Event Loop
 
@@ -135,10 +137,8 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 			}
 
 			draw(&game, &renderer, &mut fw);
+			fw.canvas.present();
 
-			let canvas = &mut fw.canvas;
-
-			canvas.present();
 			::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
 		}
 
@@ -147,103 +147,6 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 		Ok(())
 	})
 }
-
-fn regen_blocks(fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'_>)
-{
-	let ft = &mut drawer.pieces_texture;
-	let bs = drawer.block_size;
-	let fb = &state.field_blocks;
-	let fc = &state.field_colors;
-
-	let canvas = &mut fw.canvas;
-
-	canvas
-		.with_texture_canvas(ft, |c| {
-			c.set_draw_color(Color::RGBA(0, 0, 0, 0));
-			c.clear();
-
-			drawer::draw_blocks(c, bs, &fb, &fc);
-		})
-		.unwrap();
-}
-
-pub fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
-{
-	info!("Respawning piece.");
-
-	let t = theme_api::call_lua("spawn_piece", state, fw)?;
-	let (dim, colors, blocks) = theme::parse_pattern(t)?;
-
-	Ok(state::spawn_piece(state, blocks, colors, dim))
-}
-
-pub fn place_piece(
-	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
-) -> Result<(), Error>
-{
-	info!("Placing piece.");
-
-	let fc = &mut state.field_colors;
-	let fb = &mut state.field_blocks;
-	let pb = &state.piece_blocks;
-	let pc = &state.piece_colors;
-	let pl = state.piece_loc;
-
-	fb.extend(pb.iter().map(|b| Point::new(b.x + pl.x, b.y + pl.y)));
-	fc.extend(pc);
-
-	theme_api::call_lua::<()>("on_place", state, fw)?;
-
-	regen_blocks(fw, state, drawer);
-
-	let pp = &mut state.pieces_placed;
-	*pp += 1;
-
-	Ok(())
-}
-
-pub fn drop(
-	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
-) -> Result<bool, Error>
-{
-	info!("Dropping piece.");
-
-	let pj = state.piece_proj;
-
-	state.piece_loc.y = pj;
-
-	place_piece(state, drawer, fw)?;
-	spawn_piece(state, fw)
-}
-
-fn move_piece_down(
-	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
-) -> Result<bool, Error>
-{
-	if state::move_piece(state, Direction::DOWN) {
-		return Ok(true);
-	}
-
-	place_piece(state, drawer, fw)?;
-	spawn_piece(state, fw)
-}
-
-pub fn output_score(state: &TetrisState)
-{
-	println!(
-		"Well done! Here are your stats.\nScore: {}\nTime: {}\nLines cleared: {}\nPieces placed: \
-		 {}",
-		state.lines_cleared as f64
-			/ (state.time.elapsed().as_secs_f64() * state.pieces_placed as f64),
-		state.time.elapsed().as_secs_f64(),
-		state.lines_cleared,
-		state.pieces_placed,
-	);
-}
-
-// -----------------------------------------------------------------------------
-// Game
-// -----------------------------------------------------------------------------
 
 pub fn handle_event<'a>(
 	event: &Event, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>, drawer: &mut Renderer<'a>,
@@ -290,73 +193,164 @@ pub fn handle_event<'a>(
 	Ok(!state.exit)
 }
 
-pub fn draw(state: &TetrisState, drawer: &Renderer<'_>, fw: &mut Framework)
-{
-	draw_field(fw, drawer);
-	draw_blocks(drawer, fw);
-	draw_player(state, drawer, fw);
-}
+// -----------------------------------------------------------------------------
+// Game actions
+// -----------------------------------------------------------------------------
 
-pub fn draw_blocks(drawer: &Renderer<'_>, fw: &mut Framework)
+fn regen_blocks(fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'_>)
 {
-	let pt = &drawer.pieces_texture;
-	let fr = drawer.field_rect;
+	let ft = &mut drawer.pieces_texture;
+	let bs = drawer.block_size;
+	let fb = &state.field_blocks;
+	let fc = &state.field_colors;
 
 	let canvas = &mut fw.canvas;
 
-	canvas.copy(pt, None, fr).unwrap();
+	canvas
+		.with_texture_canvas(ft, |c| {
+			c.set_draw_color(Color::RGBA(0, 0, 0, 0));
+			c.clear();
+
+			drawer::draw_blocks(c, bs, &fb, &fc);
+		})
+		.unwrap();
 }
 
-pub fn draw_player(state: &TetrisState, drawer: &Renderer<'_>, fw: &mut Framework)
+pub fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
 {
-	let pcs = &state.piece_colors;
-	let pbs = &state.piece_blocks;
-	let pos = state.piece_loc;
-	let proj = state.piece_proj;
+	info!("Respawning piece.");
+
+	let t = theme_api::call_lua("spawn_piece", state, fw)?;
+	let p = theme::parse_pattern(t)?;
+
+	Ok(state::spawn_piece(state, p))
+}
+
+pub fn place_piece(
+	state: &mut TetrisState, rend: &mut Renderer<'_>, fw: &mut Framework,
+) -> Result<(), Error>
+{
+	info!("Placing piece.");
+
+	let fb = &mut state.field_blocks;
+	let fc = &mut state.field_colors;
+	let p = &state.player_piece;
+	let pp = state.player_pos;
+
+	// Add blocks to state
+	{
+		fb.extend(p.blocks.iter().map(|b| Point::new(b.x + pp.x, b.y + pp.y)));
+		fc.extend(state.player_piece.colors.iter());
+	}
+
+	theme_api::call_lua::<()>("on_place", state, fw)?;
+
+	regen_blocks(fw, state, rend);
+
+	state.pieces_placed += 1;
+
+	Ok(())
+}
+
+pub fn drop(
+	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
+) -> Result<bool, Error>
+{
+	info!("Dropping piece.");
+
+	let pj = state.player_proj;
+
+	state.player_pos.y = pj;
+
+	place_piece(state, drawer, fw)?;
+	spawn_piece(state, fw)
+}
+
+fn move_piece_down(
+	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
+) -> Result<bool, Error>
+{
+	if state::move_piece(state, Direction::DOWN) {
+		return Ok(true);
+	}
+
+	place_piece(state, drawer, fw)?;
+	spawn_piece(state, fw)
+}
+
+pub fn output_score(state: &TetrisState)
+{
+	println!(
+		"Well done! Here are your stats.\nScore: {}\nTime: {}\nLines cleared: {}\nPieces placed: \
+		 {}",
+		state.lines_cleared as f64
+			/ (state.time.elapsed().as_secs_f64() * state.pieces_placed as f64),
+		state.time.elapsed().as_secs_f64(),
+		state.lines_cleared,
+		state.pieces_placed,
+	);
+}
+
+// -----------------------------------------------------------------------------
+// Rendering
+// -----------------------------------------------------------------------------
+
+pub fn draw(state: &TetrisState, drawer: &Renderer<'_>, fw: &mut Framework)
+{
+	let canvas = &mut fw.canvas;
+	let pt = &drawer.pieces_texture;
+	let bt = &drawer.pieces_texture;
+	let pos = state.player_pos;
+	let proj = state.player_proj;
 	let fr = drawer.field_rect;
 	let bs = drawer.block_size;
 
-	debug_assert_eq!(pcs.len(), pbs.len());
+	// Draw field
+	{
+		canvas.set_draw_color(Color::BLACK);
+		canvas.fill_rect(fr).unwrap();
 
-	let canvas = &mut fw.canvas;
+		canvas.copy(bt, None, fr).unwrap();
+	}
 
-	for (c, b) in pcs.iter().zip(pbs) {
-		let color = Color::RGBA(c.r, c.g, c.b, c.a / 2);
-		let block = Rect::new(
-			fr.x + (b.x + pos.x) * bs as i32,
-			fr.y + (b.y + proj) * bs as i32,
-			bs,
-			bs,
-		);
+	// Draw field blocks
+	{
+		canvas.copy(pt, None, fr).unwrap();
+	}
 
-		canvas.set_draw_color(color);
-		canvas.fill_rect(block).unwrap();
+	// Draw player
+	{
+		for (col, rel_block) in
+			state.player_piece.colors.iter().zip(state.player_piece.blocks.iter())
+		{
+			let color = Color::RGBA(col.r, col.g, col.b, col.a / 2);
+			let block = Rect::new(
+				fr.x + (rel_block.x + pos.x) * bs as i32,
+				fr.y + (rel_block.y + proj) * bs as i32,
+				bs,
+				bs,
+			);
 
-		let color = *c;
-		let block = Rect::new(
-			fr.x + (b.x + pos.x) * bs as i32,
-			fr.y + (b.y + pos.y) * bs as i32,
-			bs,
-			bs,
-		);
+			canvas.set_draw_color(color);
+			canvas.fill_rect(block).unwrap();
 
-		canvas.set_draw_color(color);
-		canvas.fill_rect(block).unwrap();
+			let color = *col;
+			let block = Rect::new(
+				fr.x + (rel_block.x + pos.x) * bs as i32,
+				fr.y + (rel_block.y + pos.y) * bs as i32,
+				bs,
+				bs,
+			);
+
+			canvas.set_draw_color(color);
+			canvas.fill_rect(block).unwrap();
+		}
 	}
 }
 
-pub fn draw_field(fw: &mut Framework, drawer: &Renderer<'_>)
-{
-	let fr = drawer.field_rect;
-	let bt = &drawer.pieces_texture;
-
-	let canvas = &mut fw.canvas;
-
-	canvas.set_draw_color(Color::BLACK);
-	canvas.fill_rect(fr).unwrap();
-
-	canvas.copy(bt, None, fr).unwrap();
-}
+// -----------------------------------------------------------------------------
+// Scaling
+// -----------------------------------------------------------------------------
 
 pub fn resize_game<'a>(
 	state: &TetrisState, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>, drawer: &mut Renderer<'a>,

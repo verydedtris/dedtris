@@ -3,13 +3,12 @@ use std::time::Instant;
 use log::info;
 use sdl2::{pixels::Color, rect::Point};
 
-use self::{field::FieldComponent, pieces::MoveablePieceComponent};
 use super::{theme::Theme, Size};
 use crate::error::Error;
 
-mod field;
-mod gen;
-mod pieces;
+pub mod field;
+pub mod gen;
+pub mod pieces;
 
 #[derive(Debug)]
 pub enum Direction
@@ -30,11 +29,9 @@ pub struct TetrisState
 	// piece_view_pieces: Vec<gen::Piece>,
 
 	// Piece
-	pub piece_proj:   i32,
-	pub piece_loc:    Point,
-	pub piece_dim:    u32,
-	pub piece_blocks: Vec<Point>,
-	pub piece_colors: Vec<Color>,
+	pub player_proj:  i32,
+	pub player_pos:   Point,
+	pub player_piece: gen::Piece,
 
 	// Stats
 	pub time:          Instant,
@@ -45,41 +42,26 @@ pub struct TetrisState
 	pub exit: bool,
 }
 
-pub fn init_game(t: &Theme) -> Result<TetrisState, Error>
+pub fn init_game(field_dim: Size) -> Result<TetrisState, Error>
 {
-	let FieldComponent {
-		blocks: field_blocks,
-		colors: field_colors,
-		dim: field_size,
-	} = field::init(t.field_dim.0, t.field_dim.1);
-
-	let MoveablePieceComponent {
-		blocks: piece_blocks,
-		colors: piece_colors,
-		dim: piece_dim,
-		pos: piece_loc,
-		projection: piece_proj,
-	} = pieces::init();
-
-	let time = Instant::now();
-	let lines_cleared = 0;
-	let pieces_placed = 0;
-
-	let exit = false;
-
 	Ok(TetrisState {
-		field_blocks,
-		field_colors,
-		field_size,
-		piece_proj,
-		piece_loc,
-		piece_dim,
-		piece_blocks,
-		piece_colors,
-		time,
-		lines_cleared,
-		pieces_placed,
-		exit,
+		field_blocks: Vec::new(),
+		field_colors: Vec::new(),
+		field_size:   field_dim,
+
+		player_proj:  0,
+		player_pos:   Point::new(0, 0),
+		player_piece: gen::Piece {
+			dim:    0,
+			colors: Vec::new(),
+			blocks: Vec::new(),
+		},
+
+		time:          Instant::now(),
+		lines_cleared: 0,
+		pieces_placed: 0,
+
+		exit: false,
 	})
 }
 
@@ -91,8 +73,7 @@ pub fn clear_lines(state: &mut TetrisState) -> Vec<i32>
 
 	let lines = field::clear_lines(fs, fb, fc);
 
-	let lc = &mut state.lines_cleared;
-	*lc += lines.len() as u64;
+	state.lines_cleared += lines.len() as u64;
 
 	lines
 }
@@ -101,18 +82,19 @@ pub fn rotate(state: &mut TetrisState)
 {
 	let fb = &state.field_blocks;
 	let fs = state.field_size;
-	let pb = &state.piece_blocks;
-	let pl = state.piece_loc;
-	let pd = state.piece_dim;
+	let p = &state.player_piece;
+	let pp = state.player_pos;
 
-	let new_pb: Vec<Point> = pb.iter().map(|b| Point::new(pd as i32 - 1 - b.y, b.x)).collect();
+	let new_pblocks: Vec<Point> =
+		p.blocks.iter().map(|b| Point::new(p.dim as i32 - 1 - b.y, b.x)).collect();
 
-	if field::check_valid_pos(fs, fb, pl, &new_pb) {
+	if field::check_valid_pos(fs, fb, pp, &new_pblocks) {
 		info!("Rotating piece.");
 
-		let p = pieces::project(fs, fb, pl, &new_pb);
-		state.piece_blocks = new_pb;
-		state.piece_proj = p;
+		let new_proj = pieces::project(fs, fb, pp, &new_pblocks);
+
+		state.player_piece.blocks = new_pblocks;
+		state.player_proj = new_proj;
 	}
 }
 
@@ -120,8 +102,8 @@ pub fn move_piece(state: &mut TetrisState, d: Direction) -> bool
 {
 	let fb = &state.field_blocks;
 	let fs = state.field_size;
-	let pb = &state.piece_blocks;
-	let pl = state.piece_loc;
+	let p = &state.player_piece;
+	let pl = state.player_pos;
 
 	info!("Moving to {:?}.", d);
 
@@ -131,11 +113,11 @@ pub fn move_piece(state: &mut TetrisState, d: Direction) -> bool
 		Direction::DOWN => Point::new(pl.x, pl.y + 1),
 	};
 
-	if field::check_valid_pos(fs, fb, new_pl, pb) {
-		let p = pieces::project(fs, fb, new_pl, pb);
+	if field::check_valid_pos(fs, fb, new_pl, &p.blocks) {
+		let p = pieces::project(fs, fb, new_pl, &p.blocks);
 
-		state.piece_loc = new_pl;
-		state.piece_proj = p;
+		state.player_pos = new_pl;
+		state.player_proj = p;
 
 		true
 	} else {
@@ -143,31 +125,24 @@ pub fn move_piece(state: &mut TetrisState, d: Direction) -> bool
 	}
 }
 
-pub fn spawn_piece(
-	state: &mut TetrisState,
-	piece_blocks: Vec<Point>,
-	piece_colors: Vec<Color>,
-	piece_dim: u32,
-) -> bool
+pub fn spawn_piece(state: &mut TetrisState, piece: gen::Piece) -> bool
 {
 	info!("Spawning piece.");
 
 	let fb = &state.field_blocks;
 	let fs = state.field_size;
 
-	let pos = Point::new(((fs.0 - piece_dim) / 2) as i32, 0);
+	let pos = Point::new(((fs.0 - piece.dim) / 2) as i32, 0);
 
-	if !field::check_valid_pos(fs, fb, pos, &piece_blocks) {
+	if !field::check_valid_pos(fs, fb, pos, &piece.blocks) {
 		return false;
 	}
 
-	let projection = pieces::project(fs, fb, pos, &piece_blocks);
+	let projection = pieces::project(fs, fb, pos, &piece.blocks);
 
-	state.piece_blocks = piece_blocks;
-	state.piece_colors = piece_colors;
-	state.piece_dim = piece_dim;
-	state.piece_loc = pos;
-	state.piece_proj = projection;
+	state.player_piece = piece;
+	state.player_pos = pos;
+	state.player_proj = projection;
 
 	true
 }

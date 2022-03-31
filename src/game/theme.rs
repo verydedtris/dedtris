@@ -6,6 +6,8 @@ use sdl2::{pixels::Color, rect::Point};
 
 use crate::{error::*, lua::*};
 
+use super::state::gen;
+
 // -----------------------------------------------------------------------------
 // Parse Structures
 // -----------------------------------------------------------------------------
@@ -48,7 +50,7 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 // Parsing Functions
 // -----------------------------------------------------------------------------
 
-pub fn parse_pattern(table: LuaTable) -> Result<(u32, Vec<Color>, Vec<Point>), Error>
+pub fn parse_pattern(table: LuaTable) -> Result<gen::Piece, Error>
 {
 	let dim = u32::try_from(find_int(&table, "size")?)?;
 
@@ -57,7 +59,7 @@ pub fn parse_pattern(table: LuaTable) -> Result<(u32, Vec<Color>, Vec<Point>), E
 	let color = parse_piece_color(find_table(&table, "color")?)?;
 	let colors = vec![color; blocks.len()];
 
-	Ok((dim, colors, blocks))
+	Ok(gen::Piece { dim, blocks, colors })
 }
 
 fn parse_piece_body(data: LuaString, pd: u32) -> Result<Vec<Point>, Error>

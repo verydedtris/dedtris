@@ -5,7 +5,7 @@ use sdl2::rect::Point;
 // Piece
 // -----------------------------------------------------------------------------
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Piece
 {
 	pub dim: u32,

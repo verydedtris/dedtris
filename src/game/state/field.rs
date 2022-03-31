@@ -4,25 +4,6 @@ use sdl2::rect::Point;
 
 use super::Size;
 
-pub struct FieldComponent
-{
-	pub blocks: Vec<Point>,
-	pub colors: Vec<Color>,
-	pub dim: Size,
-}
-
-pub fn init(width: u32, height: u32) -> FieldComponent
-{
-	let blocks = Vec::new();
-	let colors = Vec::new();
-
-	FieldComponent {
-		blocks,
-		colors,
-		dim: (width, height),
-	}
-}
-
 pub fn lines_list(fd: Size, fb: &[Point]) -> Vec<i32>
 {
 	count_lines(fd.1, fb)
