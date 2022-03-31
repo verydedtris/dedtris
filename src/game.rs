@@ -50,36 +50,40 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 	let lua = rlua::Lua::new();
 
 	lua.context::<_, Result<(), Error>>(|ctx| {
-		// Load theme file
+		let t = {
+			theme_api::load_defaults(&ctx)?;
+			lua::exec_file(&ctx, Path::new("Themes/default.lua"))?;
+			lua::exec_file(&ctx, Path::new("Themes/test.lua"))?;
 
-		theme_api::load_defaults(&ctx)?;
-		lua::exec_file(&ctx, Path::new("Themes/default.lua"))?;
-		lua::exec_file(&ctx, Path::new("Themes/test.lua"))?;
-
-		let t = theme::load(&ctx)?;
-
-		// Construct window
+			theme::load(&ctx)?
+		};
 
 		info!("Constructing window.");
 
-		let size = drawer::calc_window_size(t.field_dim);
+		let window_size = (1080, 720);
 
 		let window = video_sys
-			.window("Tetris", size.w, size.h)
+			.window("Tetris", window_size.0, window_size.1)
 			.position_centered()
-			.resizable() // Simpler to debug
+			// .resizable() // Simpler to debug
 			.build()?;
 
-		let mut canvas = window.into_canvas().accelerated().target_texture().build()?;
+		info!("Initializing renderer.");
+
+		let mut canvas = {
+			let mut canvas = window.into_canvas().accelerated().target_texture().build()?;
+
+			canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
+			canvas.set_draw_color(Color::RGB(0, 255, 255));
+			canvas.clear();
+			canvas.present();
+
+			println!("{:?}", canvas.info().texture_formats);
+
+            canvas
+		};
 
 		let tex_maker = canvas.texture_creator();
-
-		canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-		canvas.set_draw_color(Color::RGB(0, 255, 255));
-		canvas.clear();
-		canvas.present();
-
-		// Create framework
 
 		let mut fw = Framework {
 			sdl:       sdl_context,
@@ -88,8 +92,6 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 			tex_maker: &tex_maker,
 			lua:       &ctx,
 		};
-
-		// Init Game
 
 		info!("Initializing tetris game.");
 
