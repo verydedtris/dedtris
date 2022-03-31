@@ -96,7 +96,7 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 		info!("Initializing tetris game.");
 
 		let mut game = state::init_game(t.field_dim)?;
-		let mut renderer = drawer::init_renderer(&fw, &t)?;
+		let mut renderer = drawer::init_renderer(&fw.tex_maker, window_size, t.field_dim)?;
 
 		if !spawn_piece(&mut game, &fw)? {
 			return Err(Error::from("No area for piece."));
@@ -228,7 +228,7 @@ pub fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Erro
 
 pub fn place_piece(
 	state: &mut TetrisState, rend: &mut Renderer<'_>, fw: &mut Framework,
-) -> Result<(), Error>
+) -> Result<bool, Error>
 {
 	info!("Placing piece.");
 
@@ -245,25 +245,27 @@ pub fn place_piece(
 
 	theme_api::call_lua::<()>("on_place", state, fw)?;
 
-	regen_blocks(fw, state, rend);
+	// Redraw field blocks
+	{
+		regen_blocks(fw, state, rend);
+	}
 
 	state.pieces_placed += 1;
 
-	Ok(())
+	regen_blocks(fw, state, rend);
+
+	spawn_piece(state, fw)
 }
 
 pub fn drop(
-	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
+	state: &mut TetrisState, rend: &mut Renderer<'_>, fw: &mut Framework,
 ) -> Result<bool, Error>
 {
 	info!("Dropping piece.");
 
-	let pj = state.player_proj;
+	state.player_pos.y = state.player_proj;
 
-	state.player_pos.y = pj;
-
-	place_piece(state, drawer, fw)?;
-	spawn_piece(state, fw)
+	place_piece(state, rend, fw)
 }
 
 fn move_piece_down(
@@ -274,8 +276,7 @@ fn move_piece_down(
 		return Ok(true);
 	}
 
-	place_piece(state, drawer, fw)?;
-	spawn_piece(state, fw)
+	place_piece(state, drawer, fw)
 }
 
 pub fn output_score(state: &TetrisState)
@@ -358,18 +359,14 @@ pub fn resize_game<'a>(
 )
 {
 	let fd = state.field_size;
-
-	let drawer::ResizePattern {
-		block_size,
-		field_rect,
-	} = drawer::new_resize(win_dim, fd);
-
 	let tc = fw.tex_maker;
 
-	let new_tex = drawer::recreate_texture(tc, (field_rect.w as u32, field_rect.h as u32));
+	let rp = drawer::size::new_resize(win_dim, fd);
 
-	drawer.block_size = block_size;
-	drawer.field_rect = field_rect;
+	let new_tex = drawer::recreate_texture(tc, (rp.field_rect.w as u32, rp.field_rect.h as u32));
+
+	drawer.block_size = rp.block_size;
+	drawer.field_rect = rp.field_rect;
 	drawer.pieces_texture = new_tex;
 
 	regen_blocks(fw, &state, drawer);
