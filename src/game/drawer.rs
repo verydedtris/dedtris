@@ -5,9 +5,10 @@ use sdl2::{
 	video::WindowContext,
 };
 
-use super::{theme::Theme, Framework, Size};
+use super::{state::gen, theme::Theme, Framework, Size};
 use crate::error::Error;
 
+pub mod player;
 pub mod size;
 
 pub struct Renderer<'a>
@@ -19,16 +20,20 @@ pub struct Renderer<'a>
 	pub field_border_color: Color,
 
 	pub pieces_texture: Texture<'a>,
-    // pub player_texture: Texture<'a>,
+
+	pub player_texture: Texture<'a>,
+	pub player_angle:   f64,
 }
 
 pub fn init_renderer<'a>(
-	tc: &'a TextureCreator<WindowContext>, win_dim: (u32, u32), field_dim: Size,
+	tc: &'a TextureCreator<WindowContext>, canvas: &mut WindowCanvas, win_dim: (u32, u32),
+	field_dim: Size, start_piece: &gen::Piece,
 ) -> Result<Renderer<'a>, Error>
 {
 	let rp = size::new_resize(win_dim, field_dim);
 
 	let pieces_texture = recreate_texture(tc, (rp.field_rect.w as u32, rp.field_rect.h as u32));
+	let player_texture = player::create_player_texture(tc, canvas, rp.block_size, start_piece);
 
 	Ok(Renderer::<'a> {
 		block_size: rp.block_size,
@@ -38,7 +43,21 @@ pub fn init_renderer<'a>(
 		field_border_color: Color::GRAY,
 
 		pieces_texture,
+
+		player_texture,
+		player_angle: 0.,
 	})
+}
+
+pub fn new_player_texture<'a>(
+	rend: &mut Renderer<'a>, tc: &'a TextureCreator<WindowContext>, canvas: &mut WindowCanvas,
+	piece: &gen::Piece,
+)
+{
+	let bs = rend.block_size;
+
+	rend.player_texture = player::create_player_texture(tc, canvas, bs, piece);
+	rend.player_angle = 0.;
 }
 
 pub fn recreate_texture<'a>(tc: &'a TextureCreator<WindowContext>, field_dim: Size) -> Texture<'a>
@@ -55,4 +74,3 @@ pub fn draw_blocks(canvas: &mut WindowCanvas, bs: u32, blocks: &[Point], colors:
 		canvas.fill_rect(r).unwrap();
 	}
 }
-

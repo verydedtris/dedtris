@@ -95,8 +95,14 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		info!("Initializing tetris game.");
 
+		let mut renderer = drawer::init_renderer(
+			&fw.tex_maker,
+			fw.canvas,
+			window_size,
+			t.field_dim,
+			&t.start_piece,
+		)?;
 		let mut game = state::init_game(t.field_dim, t.start_piece)?;
-		let mut renderer = drawer::init_renderer(&fw.tex_maker, window_size, t.field_dim)?;
 
 		// Event Loop
 
@@ -130,7 +136,7 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 				}
 			}
 
-			draw(&game, &renderer, &mut fw);
+			draw(&game, &mut renderer, &mut fw);
 			fw.canvas.present();
 
 			::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
@@ -210,18 +216,25 @@ fn regen_blocks(fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'
 		.unwrap();
 }
 
-pub fn spawn_piece(state: &mut TetrisState, fw: &Framework) -> Result<bool, Error>
+pub fn spawn_piece<'a>(
+	state: &mut TetrisState, rend: &mut Renderer<'a>, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>,
+) -> Result<bool, Error>
 {
 	info!("Respawning piece.");
 
 	let t = theme_api::call_lua("spawn_piece", state, fw)?;
 	let p = theme::parse_pattern(t)?;
 
+	let canvas = &mut fw.canvas;
+	let tc = &fw.tex_maker;
+
+	drawer::new_player_texture(rend, tc, canvas, &p);
+
 	Ok(state::spawn_piece(state, p))
 }
 
-pub fn place_piece(
-	state: &mut TetrisState, rend: &mut Renderer<'_>, fw: &mut Framework,
+pub fn place_piece<'a>(
+	state: &mut TetrisState, rend: &mut Renderer<'a>, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>,
 ) -> Result<bool, Error>
 {
 	info!("Placing piece.");
@@ -248,11 +261,11 @@ pub fn place_piece(
 
 	regen_blocks(fw, state, rend);
 
-	spawn_piece(state, fw)
+	spawn_piece(state, rend, fw)
 }
 
-pub fn drop(
-	state: &mut TetrisState, rend: &mut Renderer<'_>, fw: &mut Framework,
+pub fn drop<'a>(
+	state: &mut TetrisState, rend: &mut Renderer<'a>, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>,
 ) -> Result<bool, Error>
 {
 	info!("Dropping piece.");
@@ -262,8 +275,8 @@ pub fn drop(
 	place_piece(state, rend, fw)
 }
 
-fn move_piece_down(
-	state: &mut TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework,
+fn move_piece_down<'a>(
+	state: &mut TetrisState, drawer: &mut Renderer<'a>, fw: &mut Framework<'_, '_, '_, 'a, '_, '_>,
 ) -> Result<bool, Error>
 {
 	if state::move_piece(state, Direction::DOWN) {
@@ -290,11 +303,12 @@ pub fn output_score(state: &TetrisState)
 // Rendering
 // -----------------------------------------------------------------------------
 
-pub fn draw(state: &TetrisState, drawer: &Renderer<'_>, fw: &mut Framework)
+pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 {
 	let canvas = &mut fw.canvas;
-	let pt = &drawer.pieces_texture;
-	let bt = &drawer.pieces_texture;
+	let pt = &mut drawer.player_texture;
+	let pft = &drawer.pieces_texture;
+	let p = &state.player_piece;
 	let pos = state.player_pos;
 	let proj = state.player_proj;
 	let fr = drawer.field_rect;
@@ -304,42 +318,59 @@ pub fn draw(state: &TetrisState, drawer: &Renderer<'_>, fw: &mut Framework)
 	{
 		canvas.set_draw_color(Color::BLACK);
 		canvas.fill_rect(fr).unwrap();
-
-		canvas.copy(bt, None, fr).unwrap();
 	}
 
 	// Draw field blocks
 	{
-		canvas.copy(pt, None, fr).unwrap();
+		canvas.copy(pft, None, fr).unwrap();
 	}
 
 	// Draw player
 	{
-		for (col, rel_block) in
-			state.player_piece.colors.iter().zip(state.player_piece.blocks.iter())
-		{
-			let color = Color::RGBA(col.r, col.g, col.b, col.a / 2);
-			let block = Rect::new(
-				fr.x + (rel_block.x + pos.x) * bs as i32,
-				fr.y + (rel_block.y + proj) * bs as i32,
-				bs,
-				bs,
-			);
+		let x = fr.x + pos.x * bs as i32;
+		let y = fr.y + pos.y * bs as i32;
+		let size = p.dim * bs;
 
-			canvas.set_draw_color(color);
-			canvas.fill_rect(block).unwrap();
+		canvas.copy(pt, None, Rect::new(x, y, size, size)).unwrap();
 
-			let color = *col;
-			let block = Rect::new(
-				fr.x + (rel_block.x + pos.x) * bs as i32,
-				fr.y + (rel_block.y + pos.y) * bs as i32,
-				bs,
-				bs,
-			);
+		let y = fr.y + proj * bs as i32;
 
-			canvas.set_draw_color(color);
-			canvas.fill_rect(block).unwrap();
-		}
+		canvas.copy(pt, None, Rect::new(x, y, size, size)).unwrap();
+
+		let mask: Vec<Rect> = p
+			.blocks
+			.iter()
+			.map(|block| Rect::new(x + block.x * bs as i32, y + block.y * bs as i32, bs, bs))
+			.collect();
+
+		canvas.set_draw_color(Color::RGBA(0, 0, 0, 127));
+		canvas.fill_rects(&mask).unwrap();
+
+		// 		for (col, rel_block) in
+		// 			state.player_piece.colors.iter().zip(state.player_piece.blocks.
+		// iter()) 		{
+		// 			let color = Color::RGBA(col.r, col.g, col.b, col.a / 2);
+		// 			let block = Rect::new(
+		// 				fr.x + (rel_block.x + pos.x) * bs as i32,
+		// 				fr.y + (rel_block.y + proj) * bs as i32,
+		// 				bs,
+		// 				bs,
+		// 			);
+		//
+		// 			canvas.set_draw_color(color);
+		// 			canvas.fill_rect(block).unwrap();
+		//
+		// 			let color = *col;
+		// 			let block = Rect::new(
+		// 				fr.x + (rel_block.x + pos.x) * bs as i32,
+		// 				fr.y + (rel_block.y + pos.y) * bs as i32,
+		// 				bs,
+		// 				bs,
+		// 			);
+		//
+		// 			canvas.set_draw_color(color);
+		// 			canvas.fill_rect(block).unwrap();
+		// 		}
 	}
 }
 
