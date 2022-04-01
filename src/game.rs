@@ -104,6 +104,8 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 		)?;
 		let mut game = state::init_game(t.field_dim, t.start_piece)?;
 
+		refresh_piece_view(&mut fw, &mut game, &mut renderer, t.piece_view_size)?;
+
 		// Event Loop
 
 		info!("Beginning Game.");
@@ -205,10 +207,16 @@ pub fn rotate(state: &mut TetrisState, drawer: &mut Renderer<'_>)
 }
 
 pub fn refresh_piece_view<'a>(
-	fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'a>, size: usize,
-)
+	fw: &mut Framework<'_, '_, '_, 'a, '_, '_>, state: &mut TetrisState, drawer: &mut Renderer<'a>,
+	size: usize,
+) -> Result<(), Error>
 {
-    
+	let b = request_pieces(fw, state, drawer, size)?;
+
+	state.piece_queue = b.pieces;
+	drawer.piece_view_textures = b.textures;
+
+	Ok(())
 }
 
 fn regen_blocks(fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'_>)
@@ -346,8 +354,6 @@ pub fn request_pieces<'a>(
 
 	Ok(Buffer { pieces, textures })
 }
-
-
 
 // -----------------------------------------------------------------------------
 // Rendering

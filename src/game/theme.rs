@@ -23,7 +23,7 @@ pub struct Theme
 
 	pub start_piece: gen::Piece,
 
-    pub piece_view_size: u32,
+    pub piece_view_size: usize,
 }
 
 // -----------------------------------------------------------------------------
@@ -45,7 +45,7 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 
 	let piece_view_size = if let Ok(t) = init.get::<_, LuaTable>("piece_view") {
 		if let Ok(s) = t.get::<_, LuaInteger>("size") {
-			u32::try_from(s)?
+			usize::try_from(s)?
 		} else {
 			0
 		}

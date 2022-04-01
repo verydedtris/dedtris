@@ -23,6 +23,8 @@ pub struct Renderer<'a>
 
 	pub player_texture: Texture<'a>,
 	pub player_angle:   f64,
+
+    pub piece_view_textures: Vec<Texture<'a>>,
 }
 
 pub fn init_renderer<'a>(
@@ -49,6 +51,8 @@ pub fn init_renderer<'a>(
 
 		player_texture,
 		player_angle: 0.,
+
+        piece_view_textures: Vec::new(),
 	})
 }
 
