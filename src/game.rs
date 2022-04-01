@@ -362,11 +362,12 @@ pub fn request_pieces<'a>(
 pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 {
 	let canvas = &mut fw.canvas;
-	let pt = &mut drawer.player_texture;
-	let pft = &drawer.pieces_texture;
 	let p = &state.player_piece;
 	let pos = state.player_pos;
 	let proj = state.player_proj;
+	let pt = &mut drawer.player_texture;
+	let pft = &drawer.pieces_texture;
+	let pvts = &drawer.piece_view_textures;
 	let fr = drawer.field_rect;
 	let bs = drawer.block_size;
 	let angle = drawer.player_angle;
@@ -422,6 +423,19 @@ pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 
 		canvas.set_draw_color(Color::RGBA(0, 0, 0, 127));
 		canvas.fill_rects(&mask).unwrap();
+	}
+
+	// Draw piece view
+	{
+		let x = fr.x + fr.w + 5;
+		let mut y = fr.y;
+
+		for t in pvts.iter() {
+			let wh = t.query();
+
+			canvas.copy(t, None, Rect::new(x, y, wh.width, wh.height)).unwrap();
+			y += wh.height as i32 + 5;
+		}
 	}
 }
 

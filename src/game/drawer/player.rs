@@ -46,7 +46,7 @@ pub fn create_piece_textures<'a>(
 
 		canvas.set_draw_color(*pc);
 		canvas.fill_rects(&rs).unwrap();
-	});
+	}).unwrap();
 
 	textures
 

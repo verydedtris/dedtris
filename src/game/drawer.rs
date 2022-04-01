@@ -61,10 +61,17 @@ pub fn new_player_texture<'a>(
 	piece: &gen::Piece,
 )
 {
+    let pvts = &mut rend.piece_view_textures;
 	let bs = rend.block_size;
 
-	rend.player_texture =
+	let mut buffer =
 		player::create_piece_textures(tc, canvas, bs, std::slice::from_ref(piece)).pop().unwrap();
+
+    for t in pvts.iter_mut().rev() {
+        std::mem::swap(&mut buffer, t);
+    }
+
+    rend.player_texture = buffer;
 	rend.player_angle = 0.;
 }
 

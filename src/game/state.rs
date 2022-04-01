@@ -142,8 +142,15 @@ pub fn spawn_piece(state: &mut TetrisState, piece: gen::Piece) -> bool
 {
 	info!("Spawning piece.");
 
-	let player = if let Some(p) = pieces::spawn_piece(&state.field_blocks, state.field_size, piece)
-	{
+	let pvb = &mut state.piece_queue;
+	let fbs = &state.field_blocks;
+	let fs = state.field_size;
+	let idx = state.piece_queue_idx;
+
+	let buffer = std::mem::replace(&mut pvb[idx], piece);
+	state.piece_queue_idx = (idx + 1) % pvb.len();
+
+	let player = if let Some(p) = pieces::spawn_piece(fbs, fs, buffer) {
 		p
 	} else {
 		return false;
