@@ -386,22 +386,8 @@ pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 	// Draw player
 	{
 		let x = fr.x + pos.x * bs as i32;
-		let y = fr.y + pos.y * bs as i32;
-		let size = p.dim * bs;
-
-		canvas
-			.copy_ex(
-				pt,
-				None,
-				Rect::new(x, y, size, size),
-				angle,
-				None,
-				false,
-				false,
-			)
-			.unwrap();
-
 		let y = fr.y + proj * bs as i32;
+		let size = p.dim * bs;
 
 		canvas
 			.copy_ex(
@@ -423,6 +409,21 @@ pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 
 		canvas.set_draw_color(Color::RGBA(0, 0, 0, 127));
 		canvas.fill_rects(&mask).unwrap();
+
+		let y = fr.y + pos.y * bs as i32;
+
+		canvas
+			.copy_ex(
+				pt,
+				None,
+				Rect::new(x, y, size, size),
+				angle,
+				None,
+				false,
+				false,
+			)
+			.unwrap();
+
 	}
 
 	// Draw piece view
