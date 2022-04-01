@@ -33,7 +33,10 @@ pub fn init_renderer<'a>(
 	let rp = size::new_resize(win_dim, field_dim);
 
 	let pieces_texture = recreate_texture(tc, (rp.field_rect.w as u32, rp.field_rect.h as u32));
-	let player_texture = player::create_player_texture(tc, canvas, rp.block_size, start_piece);
+	let player_texture =
+		player::create_piece_textures(tc, canvas, rp.block_size, std::slice::from_ref(start_piece))
+			.pop()
+			.unwrap();
 
 	Ok(Renderer::<'a> {
 		block_size: rp.block_size,
@@ -56,7 +59,8 @@ pub fn new_player_texture<'a>(
 {
 	let bs = rend.block_size;
 
-	rend.player_texture = player::create_player_texture(tc, canvas, bs, piece);
+	rend.player_texture =
+		player::create_piece_textures(tc, canvas, bs, std::slice::from_ref(piece)).pop().unwrap();
 	rend.player_angle = 0.;
 }
 

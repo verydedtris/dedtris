@@ -81,10 +81,13 @@ function spawn_piece(state)
 end
 
 function init_game()
-	return { 
+	return {
 		width = 10,
 		height = 20,
 		start_piece = choose_piece(),
+		piece_view = {
+			size = 5,
+		},
 	}
 end
 

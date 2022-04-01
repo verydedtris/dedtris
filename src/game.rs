@@ -6,14 +6,14 @@ use sdl2::{
 	keyboard::Keycode,
 	pixels::Color,
 	rect::{Point, Rect},
-	render::{TextureCreator, WindowCanvas},
+	render::{Texture, TextureCreator, WindowCanvas},
 	video::WindowContext,
 	Sdl, VideoSubsystem,
 };
 
 use self::{
 	drawer::Renderer,
-	state::{Direction, TetrisState},
+	state::{gen::Piece, Direction, TetrisState},
 };
 use crate::{error::Error, lua};
 
@@ -199,8 +199,16 @@ pub fn handle_event<'a>(
 
 pub fn rotate(state: &mut TetrisState, drawer: &mut Renderer<'_>)
 {
-    state::rotate(state);
-    drawer.player_angle = (drawer.player_angle as u32 + 90 % 360) as f64;
+	if state::rotate(state) {
+		drawer.player_angle = (drawer.player_angle as u32 + 90 % 360) as f64;
+	}
+}
+
+pub fn refresh_piece_view<'a>(
+	fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'a>, size: usize,
+)
+{
+    
 }
 
 fn regen_blocks(fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'_>)
@@ -304,6 +312,42 @@ pub fn output_score(state: &TetrisState)
 		state.pieces_placed,
 	);
 }
+
+// -----------------------------------------------------------------------------
+// Queries
+// -----------------------------------------------------------------------------
+
+pub struct Buffer<'a>
+{
+	pub pieces:   Vec<Piece>,
+	pub textures: Vec<Texture<'a>>,
+}
+
+pub fn request_pieces<'a>(
+	fw: &mut Framework<'_, '_, '_, 'a, '_, '_>, state: &mut TetrisState, drawer: &mut Renderer<'a>,
+	size: usize,
+) -> Result<Buffer<'a>, Error>
+{
+	let mut pieces = Vec::with_capacity(size);
+
+	while pieces.len() < size {
+		let t = theme_api::call_lua("spawn_piece", state, fw)?;
+		let p = theme::parse_pattern(t)?;
+
+		pieces.push(p);
+	}
+
+	let textures = drawer::player::create_piece_textures(
+		&fw.tex_maker,
+		&mut fw.canvas,
+		drawer.block_size,
+		&pieces,
+	);
+
+	Ok(Buffer { pieces, textures })
+}
+
+
 
 // -----------------------------------------------------------------------------
 // Rendering

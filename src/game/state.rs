@@ -25,8 +25,9 @@ pub struct TetrisState
 	pub field_colors: Vec<Color>,
 	pub field_size:   Size,
 
-	// Piece view
-	// piece_view_pieces: Vec<gen::Piece>,
+	// Piece queue
+	pub piece_queue:     Vec<gen::Piece>,
+	pub piece_queue_idx: usize,
 
 	// Piece
 	pub player_proj:  i32,
@@ -58,6 +59,9 @@ pub fn init_game(field_dim: Size, start_piece: gen::Piece) -> Result<TetrisState
 		field_colors,
 		field_size,
 
+		piece_queue: Vec::new(),
+		piece_queue_idx: 0,
+
 		player_proj: player.proj,
 		player_pos: player.pos,
 		player_piece: player.piece,
@@ -83,7 +87,7 @@ pub fn clear_lines(state: &mut TetrisState) -> Vec<i32>
 	lines
 }
 
-pub fn rotate(state: &mut TetrisState)
+pub fn rotate(state: &mut TetrisState) -> bool
 {
 	let fb = &state.field_blocks;
 	let fs = state.field_size;
@@ -100,6 +104,10 @@ pub fn rotate(state: &mut TetrisState)
 
 		state.player_piece.blocks = new_pblocks;
 		state.player_proj = new_proj;
+
+		true
+	} else {
+		false
 	}
 }
 
@@ -134,20 +142,16 @@ pub fn spawn_piece(state: &mut TetrisState, piece: gen::Piece) -> bool
 {
 	info!("Spawning piece.");
 
-	let fb = &state.field_blocks;
-	let fs = state.field_size;
-
-	let pos = Point::new(((fs.0 - piece.dim) / 2) as i32, 0);
-
-	if !field::check_valid_pos(fs, fb, pos, &piece.blocks) {
+	let player = if let Some(p) = pieces::spawn_piece(&state.field_blocks, state.field_size, piece)
+	{
+		p
+	} else {
 		return false;
-	}
+	};
 
-	let projection = pieces::project(fs, fb, pos, &piece.blocks);
-
-	state.player_piece = piece;
-	state.player_pos = pos;
-	state.player_proj = projection;
+	state.player_piece = player.piece;
+	state.player_pos = player.pos;
+	state.player_proj = player.proj;
 
 	true
 }
