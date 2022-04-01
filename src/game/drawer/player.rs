@@ -12,7 +12,8 @@ pub fn create_player_texture<'a>(
 ) -> Texture<'a>
 {
 	let size = piece.dim * block_size;
-	let mut t = tc.create_texture_target(None, size, size).unwrap();
+	let mut t =
+		tc.create_texture_target(sdl2::pixels::PixelFormatEnum::ARGB8888, size, size).unwrap();
 
 	t.set_blend_mode(sdl2::render::BlendMode::Blend);
 

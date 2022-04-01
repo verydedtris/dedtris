@@ -170,7 +170,7 @@ pub fn handle_event<'a>(
 			},
 
 			Keycode::Up => {
-				state::rotate(state);
+				rotate(state, drawer);
 			},
 
 			Keycode::Space => {
@@ -196,6 +196,12 @@ pub fn handle_event<'a>(
 // -----------------------------------------------------------------------------
 // Game actions
 // -----------------------------------------------------------------------------
+
+pub fn rotate(state: &mut TetrisState, drawer: &mut Renderer<'_>)
+{
+    state::rotate(state);
+    drawer.player_angle = (drawer.player_angle as u32 + 90 % 360) as f64;
+}
 
 fn regen_blocks(fw: &mut Framework, state: &TetrisState, drawer: &mut Renderer<'_>)
 {
@@ -313,6 +319,7 @@ pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 	let proj = state.player_proj;
 	let fr = drawer.field_rect;
 	let bs = drawer.block_size;
+	let angle = drawer.player_angle;
 
 	// Draw field
 	{
@@ -331,11 +338,31 @@ pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 		let y = fr.y + pos.y * bs as i32;
 		let size = p.dim * bs;
 
-		canvas.copy(pt, None, Rect::new(x, y, size, size)).unwrap();
+		canvas
+			.copy_ex(
+				pt,
+				None,
+				Rect::new(x, y, size, size),
+				angle,
+				None,
+				false,
+				false,
+			)
+			.unwrap();
 
 		let y = fr.y + proj * bs as i32;
 
-		canvas.copy(pt, None, Rect::new(x, y, size, size)).unwrap();
+		canvas
+			.copy_ex(
+				pt,
+				None,
+				Rect::new(x, y, size, size),
+				angle,
+				None,
+				false,
+				false,
+			)
+			.unwrap();
 
 		let mask: Vec<Rect> = p
 			.blocks
@@ -345,32 +372,6 @@ pub fn draw(state: &TetrisState, drawer: &mut Renderer<'_>, fw: &mut Framework)
 
 		canvas.set_draw_color(Color::RGBA(0, 0, 0, 127));
 		canvas.fill_rects(&mask).unwrap();
-
-		// 		for (col, rel_block) in
-		// 			state.player_piece.colors.iter().zip(state.player_piece.blocks.
-		// iter()) 		{
-		// 			let color = Color::RGBA(col.r, col.g, col.b, col.a / 2);
-		// 			let block = Rect::new(
-		// 				fr.x + (rel_block.x + pos.x) * bs as i32,
-		// 				fr.y + (rel_block.y + proj) * bs as i32,
-		// 				bs,
-		// 				bs,
-		// 			);
-		//
-		// 			canvas.set_draw_color(color);
-		// 			canvas.fill_rect(block).unwrap();
-		//
-		// 			let color = *col;
-		// 			let block = Rect::new(
-		// 				fr.x + (rel_block.x + pos.x) * bs as i32,
-		// 				fr.y + (rel_block.y + pos.y) * bs as i32,
-		// 				bs,
-		// 				bs,
-		// 			);
-		//
-		// 			canvas.set_draw_color(color);
-		// 			canvas.fill_rect(block).unwrap();
-		// 		}
 	}
 }
 
