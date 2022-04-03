@@ -8,6 +8,7 @@ pub fn calc_threshold(win_dim: (u32, u32)) -> u32
 
 pub struct ResizePattern
 {
+    pub threshold: u32,
 	pub block_size: u32,
 	pub field_rect: Rect,
 }
@@ -32,6 +33,7 @@ pub fn new_resize(win_dim: (u32, u32), field_dim: Size) -> ResizePattern
 	};
 
 	ResizePattern {
+        threshold,
 		block_size,
 		field_rect,
 	}

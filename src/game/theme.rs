@@ -4,7 +4,7 @@ use log::info;
 use rlua::prelude::*;
 use sdl2::{pixels::Color, rect::Point};
 
-use super::state::gen;
+use super::Piece;
 use crate::{error::*, lua::*};
 
 // -----------------------------------------------------------------------------
@@ -21,9 +21,9 @@ pub struct Theme
 
 	pub field_dim: (u32, u32),
 
-	pub start_piece: gen::Piece,
+	pub start_piece: Piece,
 
-    pub piece_view_size: usize,
+	pub piece_view_size: usize,
 }
 
 // -----------------------------------------------------------------------------
@@ -59,7 +59,7 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 		field_edge_color: Color::GRAY,
 		field_dim: (width, height),
 		start_piece,
-        piece_view_size,
+		piece_view_size,
 	})
 }
 
@@ -67,7 +67,7 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 // Parsing Functions
 // -----------------------------------------------------------------------------
 
-pub fn parse_pattern(table: LuaTable) -> Result<gen::Piece, Error>
+pub fn parse_pattern(table: LuaTable) -> Result<Piece, Error>
 {
 	let dim = u32::try_from(find_int(&table, "size")?)?;
 
@@ -76,7 +76,7 @@ pub fn parse_pattern(table: LuaTable) -> Result<gen::Piece, Error>
 	let color = parse_piece_color(find_table(&table, "color")?)?;
 	let colors = vec![color; blocks.len()];
 
-	Ok(gen::Piece {
+	Ok(Piece {
 		dim,
 		blocks,
 		colors,
