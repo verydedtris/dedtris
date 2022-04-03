@@ -22,15 +22,18 @@ pub fn init_game<'a, 'b, 'c, 'd, 'e, 'f>(
 	fw: Framework<'a, 'b, 'c, 'd, 'e, 'f>, win_dim: (u32, u32), t: Theme,
 ) -> Result<Game<'a, 'b, 'c, 'd, 'e, 'f>, Error>
 {
-	let mut rend = drawer::init_renderer(
+	let rend = drawer::init_renderer(
 		&fw.tex_maker,
 		win_dim,
 		Path::new("Themes/default/template.bmp"),
 	)?;
 
-	let mut state = state::init_game(t.field_dim, t.start_piece)?;
+	let state = state::init_game(t.field_dim, t.start_piece)?;
 
-	Ok(Game { state, rend, fw })
+	let mut game = Game { state, rend, fw };
+	game.refresh_piece_view(t.piece_view_size)?;
+
+	Ok(game)
 }
 
 impl Game<'_, '_, '_, '_, '_, '_>

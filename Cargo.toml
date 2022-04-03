@@ -2,7 +2,7 @@
 
 [package]
 name = "tetris"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,9 +15,9 @@ edition = "2018"
 
 [dependencies]
 sdl2 = { version = "0.35.1", features = ["image"] }
-bitvec = "0.22.3"
+# bitvec = "0.22.3"
 rand = "0.8.4"
-quick-xml = "0.22.0"
+# quick-xml = "0.22.0"
 log = { version = "0.4.14", features = ["max_level_debug", "release_max_level_warn"] }
 env_logger = "0.9.0"
 rlua = "0.19.1"

@@ -2,7 +2,7 @@ use std::ffi::c_void;
 
 use log::info;
 
-use super::{state, Framework, TetrisState};
+use super::{Framework, TetrisState};
 use crate::{error::Error, lua::find_function};
 
 pub struct StateData<'a, 'b, 'c, 'd, 'f, 'g, 'h, 'i>

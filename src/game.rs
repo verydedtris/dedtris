@@ -23,7 +23,7 @@ mod state;
 mod theme;
 mod theme_api;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct Piece
 {
 	pub dim:    u32,
@@ -209,7 +209,7 @@ pub fn draw(game: &mut Game)
 	let wd = rend.win_dim;
 
 	let drawer::size::ResizePattern {
-		threshold,
+		threshold: _,
 		block_size,
 		field_rect,
 	} = drawer::size::new_resize(wd, fd);
@@ -275,5 +275,16 @@ pub fn draw(game: &mut Game)
 	}
 
 	// Draw piece view
-	{}
+	{
+		let pvs = &state.piece_queue;
+		let idx = state.piece_queue_idx;
+
+		let x = field_rect.x + field_rect.w + 10;
+		let mut y = field_rect.y;
+
+		for p in pvs[idx..].iter().chain(&pvs[..idx]) {
+			rend.draw_blocks(canvas, Point::new(x, y), block_size, &p.blocks, &p.colors);
+			y += (p.dim * block_size + 10) as i32;
+		}
+	}
 }
