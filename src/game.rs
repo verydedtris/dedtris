@@ -155,18 +155,17 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 pub fn handle_event<'a>(event: &Event, game: &mut Game) -> Result<bool, Error>
 {
-	let state = &mut game.state;
-	let drawer = &mut game.rend;
-
 	match event {
 		Event::KeyDown {
 			keycode: Some(x), ..
 		} => match x {
 			Keycode::Left => {
+				let state = &mut game.state;
 				state.move_piece(Direction::LEFT);
 			},
 
 			Keycode::Right => {
+				let state = &mut game.state;
 				state.move_piece(Direction::RIGHT);
 			},
 
@@ -175,7 +174,12 @@ pub fn handle_event<'a>(event: &Event, game: &mut Game) -> Result<bool, Error>
 			},
 
 			Keycode::Up => {
+				let state = &mut game.state;
 				state.rotate();
+			},
+
+			Keycode::LShift => {
+				game.swap()?;
 			},
 
 			Keycode::Space => {
@@ -189,13 +193,14 @@ pub fn handle_event<'a>(event: &Event, game: &mut Game) -> Result<bool, Error>
 			win_event: WindowEvent::Resized(w, h),
 			..
 		} => {
-			// resize_game(state, fw, drawer, (*w as u32, *h as u32));
+			let drawer = &mut game.rend;
 			drawer.win_dim = (*w as u32, *h as u32);
 		},
 
 		_ => (),
 	}
 
+	let state = &mut game.state;
 	Ok(!state.exit)
 }
 
@@ -286,5 +291,13 @@ pub fn draw(game: &mut Game)
 			rend.draw_blocks(canvas, Point::new(x, y), block_size, &p.blocks, &p.colors);
 			y += (p.dim * block_size + 10) as i32;
 		}
+	}
+
+	// Draw piece swap
+	if let Some(sp) = &state.piece_swap {
+		let size = block_size * sp.dim;
+		let pos = Point::new(field_rect.x - size as i32 - 10, field_rect.y);
+
+		rend.draw_blocks(canvas, pos, block_size, &sp.blocks, &sp.colors);
 	}
 }

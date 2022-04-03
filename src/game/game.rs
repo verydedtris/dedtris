@@ -5,7 +5,7 @@ use sdl2::rect::Point;
 
 use super::{
 	drawer,
-	state::{self, Direction},
+	state::{self, field, pieces, Direction},
 	theme::{self, Theme},
 	theme_api, Framework, Piece,
 };
@@ -92,6 +92,40 @@ impl Game<'_, '_, '_, '_, '_, '_>
 		state.pieces_placed += 1;
 
 		self.spawn_piece()
+	}
+
+	pub fn swap(&mut self) -> Result<(), Error>
+	{
+		let state = &mut self.state;
+		let fd = state.field_size;
+		let pl = state.player_pos;
+
+		if let Some(piece) = &mut state.piece_swap {
+			if field::check_valid_pos(fd, &state.field_blocks, pl, &piece.blocks) {
+				std::mem::swap(piece, &mut state.player_piece);
+
+				state.player_proj =
+					pieces::project(fd, &state.field_blocks, pl, &state.player_piece.blocks);
+			}
+		} else {
+			let p = self.request_piece()?;
+
+			let state = &mut self.state;
+			let p = state.push_piece(p);
+
+			state.piece_swap = Some(
+				if field::check_valid_pos(fd, &state.field_blocks, pl, &p.blocks) {
+					std::mem::replace(&mut state.player_piece, p)
+				} else {
+					p
+				},
+			);
+
+			state.player_proj =
+				pieces::project(fd, &state.field_blocks, pl, &state.player_piece.blocks);
+		}
+
+		Ok(())
 	}
 
 	pub fn drop(&mut self) -> Result<bool, Error>

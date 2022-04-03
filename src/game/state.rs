@@ -28,6 +28,9 @@ pub struct TetrisState
 	pub piece_queue:     Vec<Piece>,
 	pub piece_queue_idx: usize,
 
+	// Piece swap
+	pub piece_swap: Option<Piece>,
+
 	// Piece
 	pub player_proj:  i32,
 	pub player_pos:   Point,
@@ -60,6 +63,8 @@ pub fn init_game(field_dim: Size, start_piece: Piece) -> Result<TetrisState, Err
 
 		piece_queue: Vec::new(),
 		piece_queue_idx: 0,
+
+		piece_swap: None,
 
 		player_proj: player.proj,
 		player_pos: player.pos,
@@ -169,21 +174,25 @@ impl TetrisState
 		true
 	}
 
-	pub fn spawn_piece(&mut self, piece: Piece) -> bool
+	pub fn push_piece(&mut self, piece: Piece) -> Piece
 	{
-		info!("Spawning piece.");
-
 		let pvb = &mut self.piece_queue;
 		let idx = self.piece_queue_idx;
 
-		let piece = if pvb.len() > 0 {
+		if pvb.len() > 0 {
 			let p = std::mem::replace(&mut pvb[idx], piece);
 			self.piece_queue_idx = (idx + 1) % pvb.len();
 			p
 		} else {
 			piece
-		};
+		}
+	}
 
+	pub fn spawn_piece(&mut self, piece: Piece) -> bool
+	{
+		info!("Spawning piece.");
+
+		let piece = self.push_piece(piece);
 		self.spawn_piece_direct(piece)
 	}
 }
