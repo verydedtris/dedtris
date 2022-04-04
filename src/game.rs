@@ -74,7 +74,7 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 		let window = video_sys
 			.window("Tetris", WINDOW_SIZE.0, WINDOW_SIZE.1)
 			.position_centered()
-			// .resizable() // Simpler to debug
+			.resizable()
 			.build()?;
 
 		info!("Initializing renderer.");
