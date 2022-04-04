@@ -2,7 +2,7 @@ use std::ffi::c_void;
 
 use log::info;
 
-use super::{state, Framework, TetrisState};
+use super::{Framework, TetrisState};
 use crate::{error::Error, lua::find_function};
 
 pub struct StateData<'a, 'b, 'c, 'd, 'f, 'g, 'h, 'i>
@@ -33,7 +33,7 @@ pub fn load_defaults(ctx: &rlua::Context) -> Result<(), Error>
 	let solve_field = ctx.create_function(|_, data: rlua::LightUserData| {
 		let StateData { game, .. }: &mut StateData = unsafe { &mut *(data.0 as *mut StateData) };
 
-		let v = state::clear_lines(game);
+		let v = game.clear_lines();
 
 		Ok(v)
 	})?;

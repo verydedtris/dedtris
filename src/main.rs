@@ -1,4 +1,3 @@
-extern crate bitvec;
 extern crate log;
 extern crate rlua;
 extern crate sdl2;

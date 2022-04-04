@@ -1,7 +1,7 @@
-use log::info;
-use sdl2::{pixels::Color, rect::Point};
+use sdl2::rect::Point;
 
-use super::{field, gen, Size};
+use super::{field, Size};
+use crate::game::Piece;
 
 // -----------------------------------------------------------------------------
 // Movable Piece
@@ -20,14 +20,12 @@ pub fn project(field_dim: Size, field_blocks: &[Point], pos: Point, blocks: &[Po
 
 pub struct SpawnedPiece
 {
-	pub piece: gen::Piece,
+	pub piece: Piece,
 	pub pos:   Point,
 	pub proj:  i32,
 }
 
-pub fn spawn_piece(
-	field_blocks: &[Point], field_dim: Size, piece: gen::Piece,
-) -> Option<SpawnedPiece>
+pub fn spawn_piece(field_blocks: &[Point], field_dim: Size, piece: Piece) -> Option<SpawnedPiece>
 {
 	let pos = Point::new(((field_dim.0 - piece.dim) / 2) as i32, 0);
 

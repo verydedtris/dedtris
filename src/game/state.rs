@@ -3,11 +3,10 @@ use std::time::Instant;
 use log::info;
 use sdl2::{pixels::Color, rect::Point};
 
-use super::{theme::Theme, Size};
+use super::{Piece, Size};
 use crate::error::Error;
 
 pub mod field;
-pub mod gen;
 pub mod pieces;
 
 #[derive(Debug)]
@@ -26,13 +25,16 @@ pub struct TetrisState
 	pub field_size:   Size,
 
 	// Piece queue
-	pub piece_queue:     Vec<gen::Piece>,
+	pub piece_queue:     Vec<Piece>,
 	pub piece_queue_idx: usize,
+
+	// Piece swap
+	pub piece_swap: Option<Piece>,
 
 	// Piece
 	pub player_proj:  i32,
 	pub player_pos:   Point,
-	pub player_piece: gen::Piece,
+	pub player_piece: Piece,
 
 	// Stats
 	pub time:          Instant,
@@ -43,7 +45,7 @@ pub struct TetrisState
 	pub exit: bool,
 }
 
-pub fn init_game(field_dim: Size, start_piece: gen::Piece) -> Result<TetrisState, Error>
+pub fn init_game(field_dim: Size, start_piece: Piece) -> Result<TetrisState, Error>
 {
 	let field_blocks = Vec::new();
 	let field_colors = Vec::new();
@@ -62,6 +64,8 @@ pub fn init_game(field_dim: Size, start_piece: gen::Piece) -> Result<TetrisState
 		piece_queue: Vec::new(),
 		piece_queue_idx: 0,
 
+		piece_swap: None,
+
 		player_proj: player.proj,
 		player_pos: player.pos,
 		player_piece: player.piece,
@@ -74,96 +78,121 @@ pub fn init_game(field_dim: Size, start_piece: gen::Piece) -> Result<TetrisState
 	})
 }
 
-pub fn clear_lines(state: &mut TetrisState) -> Vec<i32>
+impl TetrisState
 {
-	let fs = state.field_size;
-	let fb = &mut state.field_blocks;
-	let fc = &mut state.field_colors;
+	pub fn clear_lines(&mut self) -> Vec<i32>
+	{
+		let fb = &mut self.field_blocks;
+		let fc = &mut self.field_colors;
+		let fs = self.field_size;
 
-	let lines = field::clear_lines(fs, fb, fc);
+		let lines = field::clear_lines(fs, fb, fc);
+		self.lines_cleared += lines.len() as u64;
 
-	state.lines_cleared += lines.len() as u64;
+		lines
+	}
 
-	lines
-}
+	pub fn rotate(&mut self) -> bool
+	{
+		let p = &self.player_piece;
 
-pub fn rotate(state: &mut TetrisState) -> bool
-{
-	let fb = &state.field_blocks;
-	let fs = state.field_size;
-	let p = &state.player_piece;
-	let pp = state.player_pos;
+		let new_pblocks: Vec<Point> =
+			p.blocks.iter().map(|b| Point::new(p.dim as i32 - 1 - b.y, b.x)).collect();
 
-	let new_pblocks: Vec<Point> =
-		p.blocks.iter().map(|b| Point::new(p.dim as i32 - 1 - b.y, b.x)).collect();
+		let fb = &self.field_blocks;
+		let fs = self.field_size;
+		let pp = self.player_pos;
 
-	if field::check_valid_pos(fs, fb, pp, &new_pblocks) {
-		info!("Rotating piece.");
+		if !field::check_valid_pos(fs, fb, pp, &new_pblocks) {
+			return false;
+		}
 
-		let new_proj = pieces::project(fs, fb, pp, &new_pblocks);
+		let p = pieces::project(fs, fb, pp, &new_pblocks);
 
-		state.player_piece.blocks = new_pblocks;
-		state.player_proj = new_proj;
+		self.player_piece.blocks = new_pblocks;
+		self.player_proj = p;
 
 		true
-	} else {
-		false
 	}
-}
 
-pub fn move_piece(state: &mut TetrisState, d: Direction) -> bool
-{
-	let fb = &state.field_blocks;
-	let fs = state.field_size;
-	let p = &state.player_piece;
-	let pl = state.player_pos;
+	pub fn move_piece(&mut self, d: Direction) -> bool
+	{
+		let pl = self.player_pos;
 
-	info!("Moving to {:?}.", d);
+		info!("Moving to {:?}.", d);
 
-	let new_pl = match d {
-		Direction::LEFT => Point::new(pl.x - 1, pl.y),
-		Direction::RIGHT => Point::new(pl.x + 1, pl.y),
-		Direction::DOWN => Point::new(pl.x, pl.y + 1),
-	};
+		let new_pl = match d {
+			Direction::LEFT => Point::new(pl.x - 1, pl.y),
+			Direction::RIGHT => Point::new(pl.x + 1, pl.y),
+			Direction::DOWN => Point::new(pl.x, pl.y + 1),
+		};
 
-	if field::check_valid_pos(fs, fb, new_pl, &p.blocks) {
+		let fb = &self.field_blocks;
+		let fs = self.field_size;
+		let p = &self.player_piece;
+
+		if !field::check_valid_pos(fs, fb, new_pl, &p.blocks) {
+			return false;
+		}
+
 		let p = pieces::project(fs, fb, new_pl, &p.blocks);
 
-		state.player_pos = new_pl;
-		state.player_proj = p;
+		self.player_pos = new_pl;
+		self.player_proj = p;
 
 		true
-	} else {
-		false
 	}
-}
 
-pub fn spawn_piece(state: &mut TetrisState, piece: gen::Piece) -> bool
-{
-	info!("Spawning piece.");
+	pub fn output_score(&self)
+	{
+		println!(
+			"Well done! Here are your stats.\nScore: {}\nTime: {}\nLines cleared: {}\nPieces \
+			 placed: {}",
+			self.lines_cleared as f64
+				/ (self.time.elapsed().as_secs_f64() * self.pieces_placed as f64),
+			self.time.elapsed().as_secs_f64(),
+			self.lines_cleared,
+			self.pieces_placed,
+		);
+	}
 
-	let pvb = &mut state.piece_queue;
-	let fbs = &state.field_blocks;
-	let fs = state.field_size;
-	let idx = state.piece_queue_idx;
+	pub fn spawn_piece_direct(&mut self, piece: Piece) -> bool
+	{
+		let fbs = &self.field_blocks;
+		let fs = self.field_size;
 
-	let buffer = if pvb.len() > 0 {
-		let p = std::mem::replace(&mut pvb[idx], piece);
-		state.piece_queue_idx = (idx + 1) % pvb.len();
-		p
-	} else {
-		piece
-	};
+		let player = if let Some(p) = pieces::spawn_piece(fbs, fs, piece) {
+			p
+		} else {
+			return false;
+		};
 
-	let player = if let Some(p) = pieces::spawn_piece(fbs, fs, buffer) {
-		p
-	} else {
-		return false;
-	};
+		self.player_piece = player.piece;
+		self.player_pos = player.pos;
+		self.player_proj = player.proj;
 
-	state.player_piece = player.piece;
-	state.player_pos = player.pos;
-	state.player_proj = player.proj;
+		true
+	}
 
-	true
+	pub fn push_piece(&mut self, piece: Piece) -> Piece
+	{
+		let pvb = &mut self.piece_queue;
+		let idx = self.piece_queue_idx;
+
+		if pvb.len() > 0 {
+			let p = std::mem::replace(&mut pvb[idx], piece);
+			self.piece_queue_idx = (idx + 1) % pvb.len();
+			p
+		} else {
+			piece
+		}
+	}
+
+	pub fn spawn_piece(&mut self, piece: Piece) -> bool
+	{
+		info!("Spawning piece.");
+
+		let piece = self.push_piece(piece);
+		self.spawn_piece_direct(piece)
+	}
 }
