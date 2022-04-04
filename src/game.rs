@@ -114,13 +114,10 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		let sdl = game.fw.sdl;
 		let mut event_pump = sdl.event_pump().unwrap();
-		let mut i = 0;
 
 		'running: loop {
-			i = (i + 1) % 255;
-
 			let canvas = &mut game.fw.canvas;
-			canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
+			canvas.set_draw_color(Color::GRAY);
 			canvas.clear();
 
 			for event in event_pump.poll_iter() {
@@ -143,7 +140,7 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 			let canvas = &mut game.fw.canvas;
 			canvas.present();
 
-			::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+			::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
 		}
 
 		let state = &game.state;
