@@ -1,0 +1,64 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deploy:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Ubuntu - Install required packages
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt install libsdl2-dev libsdl2-image-dev
+      - name: MacOS - Install required packages
+        if: matrix.os == 'macos-latest'
+        run: brew install sdl2 sdl2_image
+      - name: Windows - Install required packages
+        if: matrix.os == 'windows-latest'
+        run: |
+          Invoke-WebRequest -URI https://www.libsdl.org/release/SDL2-devel-2.0.20-VC.zip -outfile SDL2.zip
+          Invoke-WebRequest -URI https://www.libsdl.org/projects/SDL_image/release/SDL2_image-devel-2.0.5-VC.zip -outfile SDL2_image.zip
+          Expand-Archive SDL2.zip -DestinationPath SDL2
+          Expand-Archive SDL2_image.zip -DestinationPath SDL2_image
+          cp .\SDL2\SDL2*\lib\x64\* .\
+          cp .\SDL2_image\SDL2*\lib\x64\* .\
+
+      - name: Build
+        run: cargo build --release
+        
+      - name: Prepare release packing
+        run: mkdir release
+        
+      - name: Ubuntu - Packup release
+        if: matrix.os == 'ubuntu-latest'
+        run: tar -czvf release/x86_64-linux.tar.gz Themes/ target/release/tetris
+      - name: MacOS - Packup release
+        if: matrix.os == 'macos-latest'
+        run: tar -czvf release/x86_64-macos.tar.gz Themes/ target/release/tetris
+      - name: Windows - Packup release
+        if: matrix.os == 'windows-latest'
+        run: Compress-Archive -Path ".\SDL2\SDL2*\lib\x64\*.dll",".\SDL2_image\SDL2*\lib\x64\*.dll",".\target\release\tetris.exe" -DestinationPath ".\release\x86_64-windows.zip"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          name: Auto Release ${{ github.ref }}
+          draft: true
+          files: |
+            ./release/*.tar.gz
+            ./release/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
