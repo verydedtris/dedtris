@@ -48,7 +48,7 @@ jobs:
         run: tar -czvf release/x86_64-macos.tar.gz Themes/ target/release/tetris
       - name: Windows - Packup release
         if: matrix.os == 'windows-latest'
-        run: Compress-Archive -Path ".\SDL2\SDL2*\lib\x64\*.dll",".\SDL2_image\SDL2*\lib\x64\*.dll" ".\target\release\tetris.exe" -DestinationPath ".\release\x86_64-windows.zip"
+        run: Compress-Archive -Path ".\SDL2\SDL2*\lib\x64\*.dll",".\SDL2_image\SDL2*\lib\x64\*.dll",".\target\release\tetris.exe" -DestinationPath ".\release\x86_64-windows.zip"
 
       - name: Create release
         uses: softprops/action-gh-release@v1
