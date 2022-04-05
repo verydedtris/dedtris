@@ -2,7 +2,8 @@ name: Build Release
 
 on:
   push:
-    branches: [ github_action ]
+    tags:
+      - "v*.*.*"
 
 env:
   CARGO_TERM_COLOR: always
@@ -54,7 +55,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref }}
-          release_name: Auto Release ${{ github.ref }}
+          name: Auto Release ${{ github.ref }}
           draft: true
           files: |
             ./release/*.tar.gz
