@@ -1,3 +1,5 @@
+require "Themes.default.script"
+
 local bag = {}
 
 local function shuffle(bag)
@@ -9,7 +11,7 @@ local function shuffle(bag)
 	return bag
 end
 
-function spawn_piece(state)
+function bag_spawn()
 	if #bag == 0 then
 		for i = 1, 2 * #pieces, 1 do
 			bag[i] = (i - 1) % 7 + 1

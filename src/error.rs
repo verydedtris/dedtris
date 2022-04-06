@@ -2,8 +2,7 @@ use std::num::TryFromIntError;
 
 use log::error;
 use rlua::prelude::LuaError;
-use sdl2::video::WindowBuildError;
-use sdl2::IntegerOrSdlError;
+use sdl2::{video::WindowBuildError, IntegerOrSdlError};
 
 pub struct Error;
 
@@ -78,6 +77,15 @@ impl From<IntegerOrSdlError> for Error
 	}
 }
 
+impl From<ini::Error> for Error
+{
+	fn from(e: ini::Error) -> Self
+	{
+		error!("{}", e);
+		Self {}
+	}
+}
+
 #[macro_export]
 macro_rules! err {
     ($x:expr, $msg:expr, $($param:expr),+) => {
@@ -104,7 +112,7 @@ macro_rules! end {
 			Err(e) => {
 				error!("{}: {}", $msg, e);
 				return;
-			}
+			},
 		}
 	};
 
@@ -114,7 +122,7 @@ macro_rules! end {
 			Err(e) => {
 				error!("{}", e);
 				return;
-			}
+			},
 		}
 	};
 }
