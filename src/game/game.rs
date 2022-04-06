@@ -5,7 +5,11 @@ use sdl2::rect::Point;
 
 use super::{
 	drawer,
-	state::{self, field, pieces, Direction},
+	state::{
+		self, field,
+		flags::{self, Flag},
+		pieces, Direction,
+	},
 	theme::{self, Theme},
 	theme_api, Framework, Piece,
 };
@@ -28,7 +32,7 @@ pub fn init_game<'a, 'b, 'c, 'd, 'e, 'f>(
 		Path::new("Themes/default/template.bmp"),
 	)?;
 
-	let state = state::init_game(t.field_dim, t.start_piece)?;
+	let state = state::init_game(t.field_dim, t.start_piece, t.piece_hold_enabled)?;
 
 	let mut game = Game { state, rend, fw };
 	game.refresh_piece_view(t.piece_view_size)?;
@@ -97,6 +101,11 @@ impl Game<'_, '_, '_, '_, '_, '_>
 	pub fn swap(&mut self) -> Result<(), Error>
 	{
 		let state = &mut self.state;
+
+		if !flags::check(&state.flags, Flag::PieceHoldEnabled) {
+			return Ok(());
+		}
+
 		let fd = state.field_size;
 		let pl = state.player_pos;
 

@@ -3,10 +3,12 @@ use std::time::Instant;
 use log::info;
 use sdl2::{pixels::Color, rect::Point};
 
+use self::flags::{Flag, FlagStore};
 use super::{Piece, Size};
 use crate::error::Error;
 
 pub mod field;
+pub mod flags;
 pub mod pieces;
 
 #[derive(Debug)]
@@ -19,6 +21,9 @@ pub enum Direction
 
 pub struct TetrisState
 {
+	// Flags
+	pub flags: flags::FlagStore,
+
 	// Field
 	pub field_blocks: Vec<Point>,
 	pub field_colors: Vec<Color>,
@@ -45,7 +50,9 @@ pub struct TetrisState
 	pub exit: bool,
 }
 
-pub fn init_game(field_dim: Size, start_piece: Piece) -> Result<TetrisState, Error>
+pub fn init_game(
+	field_dim: Size, start_piece: Piece, piece_hold_enabled: bool,
+) -> Result<TetrisState, Error>
 {
 	let field_blocks = Vec::new();
 	let field_colors = Vec::new();
@@ -56,7 +63,12 @@ pub fn init_game(field_dim: Size, start_piece: Piece) -> Result<TetrisState, Err
 		None => return Err(Error::from("No area for piece.")),
 	};
 
+	let mut flags = FlagStore::default();
+	flags::switch(&mut flags, Flag::PieceHoldEnabled, piece_hold_enabled);
+
 	Ok(TetrisState {
+		flags,
+
 		field_blocks,
 		field_colors,
 		field_size,

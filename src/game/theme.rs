@@ -23,7 +23,10 @@ pub struct Theme
 
 	pub start_piece: Piece,
 
-	pub piece_view_size: usize,
+	pub piece_view_size:    usize,
+	pub piece_hold_enabled: bool,
+
+	pub piece_tick: u32,
 }
 
 // -----------------------------------------------------------------------------
@@ -41,25 +44,33 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 	let width = u32::try_from(init.get::<_, LuaInteger>("width")?)?;
 	let height = u32::try_from(init.get::<_, LuaInteger>("height")?)?;
 
+	let piece_tick = u32::try_from(init.get::<_, LuaInteger>("piece_tick")?)?;
+
 	let start_piece = parse_pattern(init.get::<_, LuaTable>("start_piece")?)?;
 
-	let piece_view_size = if let Ok(t) = init.get::<_, LuaTable>("piece_view") {
-		if let Ok(s) = t.get::<_, LuaInteger>("size") {
-			usize::try_from(s)?
-		} else {
-			0
-		}
+	let piece_view_size = if let Ok(s) =
+		init.get::<_, LuaTable>("piece_view").and_then(|t| t.get::<_, LuaInteger>("size"))
+	{
+		usize::try_from(s)?
 	} else {
 		0
 	};
+
+	let piece_hold_enabled = init
+		.get::<_, LuaTable>("piece_hold")
+		.and_then(|t| t.get::<_, LuaInteger>("enabled"))
+		.map(|i| i != 0)
+		.unwrap_or(false);
 
 	Ok(Theme {
 		bg_color: Color::WHITE,
 		field_bg_color: Color::BLACK,
 		field_edge_color: Color::GRAY,
 		field_dim: (width, height),
+		piece_tick,
 		start_piece,
 		piece_view_size,
+		piece_hold_enabled,
 	})
 }
 
