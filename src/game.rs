@@ -52,8 +52,13 @@ pub struct Framework<'a, 'b, 'd, 'e, 'f, 'g>
 ///
 /// * `sdl_context` SDL context
 /// * `video_sys` Video subsystem
-pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Result<(), Error>
+pub fn start_tetris_game(profile: &Path) -> Result<(), Error>
 {
+	info!("Initializing SDL2 and its subsystems.");
+
+	let sdl_context = sdl2::init()?;
+	let video_sys = sdl_context.video()?;
+
 	info!("Initializing Lua plugin enviroment.",);
 
 	let lua = rlua::Lua::new();
@@ -61,8 +66,7 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 	lua.context::<_, Result<(), Error>>(|ctx| {
 		let t = {
 			theme_api::load_defaults(&ctx)?;
-			lua::exec_file(&ctx, Path::new("Themes/default/default.lua"))?;
-			lua::exec_file(&ctx, Path::new("Themes/test.lua"))?;
+			lua::exec_file(&ctx, profile)?;
 
 			theme::load(&ctx)?
 		};
@@ -87,8 +91,6 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 			canvas.clear();
 			canvas.present();
 
-			println!("{:?}", canvas.info().texture_formats);
-
 			canvas
 		};
 
@@ -98,8 +100,8 @@ pub fn start_tetris_game(sdl_context: &Sdl, video_sys: &VideoSubsystem) -> Resul
 
 		let mut game = {
 			let fw = Framework {
-				sdl:       sdl_context,
-				video:     video_sys,
+				sdl:       &sdl_context,
+				video:     &video_sys,
 				canvas:    &mut canvas,
 				tex_maker: &tex_maker,
 				lua:       &ctx,
