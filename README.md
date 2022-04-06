@@ -1,6 +1,19 @@
 # Majtris
 A extendable tetris game written in Rust. Extensions are written in Lua.
 
+<figure align="center">
+    <img src="images/menu.png" alt="menu image" style="width:80%">
+    <figcaption align = "center">
+        Main menu
+    </figcaption>
+</figure>
+<figure align="center">
+    <img src="images/game.png" alt="game image" style="width:50%">
+    <figcaption align = "center">
+        Game in progress
+    </figcaption>
+</figure>
+
 ## Installation
 The prebuilt binaries can be found [here](https://github.com/dedtris/dedtris/releases).
 
