@@ -93,7 +93,7 @@ function init_game()
 			size = 5,
 		},
 		piece_hold = {
-			enabled = false,
+			enabled = true,
 		},
 	}
 end

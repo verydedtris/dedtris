@@ -58,8 +58,7 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 
 	let piece_hold_enabled = init
 		.get::<_, LuaTable>("piece_hold")
-		.and_then(|t| t.get::<_, LuaInteger>("enabled"))
-		.map(|i| i != 0)
+		.and_then(|t| t.get::<_, bool>("enabled"))
 		.unwrap_or(false);
 
 	Ok(Theme {
