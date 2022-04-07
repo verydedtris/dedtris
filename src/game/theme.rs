@@ -47,7 +47,7 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 	let piece_tick = if let Ok(t) = init.get::<_, LuaInteger>("piece_tick") {
 		Duration::from_millis(u64::try_from(t)?)
 	} else {
-		Duration::MAX
+		Duration::from_secs(3_155_760_000)
 	};
 
 	let start_piece = parse_pattern(init.get::<_, LuaTable>("start_piece")?)?;

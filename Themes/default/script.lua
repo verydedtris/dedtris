@@ -85,8 +85,6 @@ function init_game()
 		width = 10,
 		height = 20,
 
-		piece_tick = 1000,
-
 		start_piece = choose_piece(),
 
 		piece_view = {

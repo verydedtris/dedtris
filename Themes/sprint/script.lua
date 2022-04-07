@@ -15,3 +15,21 @@ function on_place(state)
 		end
 	end
 end
+
+function init_game()
+	return {
+		width = 10,
+		height = 20,
+
+		start_piece = bag_spawn(),
+
+		piece_tick = 1000,
+
+		piece_view = {
+			size = 5,
+		},
+		piece_hold = {
+			enabled = true,
+		},
+	}
+end
