@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, time::Duration};
 
 use log::info;
 use rlua::prelude::*;
@@ -26,7 +26,7 @@ pub struct Theme
 	pub piece_view_size:    usize,
 	pub piece_hold_enabled: bool,
 
-	pub piece_tick: u32,
+	pub piece_tick: Duration,
 }
 
 // -----------------------------------------------------------------------------
@@ -44,7 +44,11 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 	let width = u32::try_from(init.get::<_, LuaInteger>("width")?)?;
 	let height = u32::try_from(init.get::<_, LuaInteger>("height")?)?;
 
-	let piece_tick = u32::try_from(init.get::<_, LuaInteger>("piece_tick")?)?;
+	let piece_tick = if let Ok(t) = init.get::<_, LuaInteger>("piece_tick") {
+		Duration::from_millis(u64::try_from(t)?)
+	} else {
+		Duration::MAX
+	};
 
 	let start_piece = parse_pattern(init.get::<_, LuaTable>("start_piece")?)?;
 

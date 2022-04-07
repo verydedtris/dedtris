@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use log::info;
 use sdl2::{pixels::Color, rect::Point};
@@ -41,6 +41,10 @@ pub struct TetrisState
 	pub player_pos:   Point,
 	pub player_piece: Piece,
 
+	// Tick
+	pub player_tick_dur:  Duration,
+	pub player_tick_time: Instant,
+
 	// Stats
 	pub time:          Instant,
 	pub lines_cleared: u64,
@@ -51,7 +55,7 @@ pub struct TetrisState
 }
 
 pub fn init_game(
-	field_dim: Size, start_piece: Piece, piece_hold_enabled: bool,
+	field_dim: Size, start_piece: Piece, piece_hold_enabled: bool, player_tick: Duration,
 ) -> Result<TetrisState, Error>
 {
 	let field_blocks = Vec::new();
@@ -65,6 +69,8 @@ pub fn init_game(
 
 	let mut flags = FlagStore::default();
 	flags::switch(&mut flags, Flag::PieceHoldEnabled, piece_hold_enabled);
+
+	let player_tick_time = Instant::now() + player_tick;
 
 	Ok(TetrisState {
 		flags,
@@ -81,6 +87,9 @@ pub fn init_game(
 		player_proj: player.proj,
 		player_pos: player.pos,
 		player_piece: player.piece,
+
+		player_tick_dur: player_tick,
+		player_tick_time,
 
 		time: Instant::now(),
 		lines_cleared: 0,

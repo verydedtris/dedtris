@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Instant};
 
 use log::*;
 use sdl2::rect::Point;
@@ -32,7 +32,12 @@ pub fn init_game<'a, 'b, 'c, 'd, 'e, 'f>(
 		Path::new("Themes/default/template.bmp"),
 	)?;
 
-	let state = state::init_game(t.field_dim, t.start_piece, t.piece_hold_enabled)?;
+	let state = state::init_game(
+		t.field_dim,
+		t.start_piece,
+		t.piece_hold_enabled,
+		t.piece_tick,
+	)?;
 
 	let mut game = Game { state, rend, fw };
 	game.refresh_piece_view(t.piece_view_size)?;
@@ -145,6 +150,18 @@ impl Game<'_, '_, '_, '_, '_, '_>
 		state.player_pos.y = state.player_proj;
 
 		self.place_piece()
+	}
+
+	pub fn tick_update(&mut self) -> Result<(), Error>
+	{
+		let state = &mut self.state;
+
+		if state.player_tick_time <= Instant::now() {
+			state.player_tick_time += state.player_tick_dur;
+            self.move_piece_down()?;
+		}
+
+        Ok(())
 	}
 
 	pub fn move_piece_down<'a>(&mut self) -> Result<bool, Error>

@@ -137,6 +137,7 @@ pub fn start_tetris_game(profile: &Path) -> Result<(), Error>
 				}
 			}
 
+			update(&mut game)?;
 			draw(&mut game);
 
 			let canvas = &mut game.fw.canvas;
@@ -201,6 +202,11 @@ pub fn handle_event<'a>(event: &Event, game: &mut Game) -> Result<bool, Error>
 
 	let state = &mut game.state;
 	Ok(!state.exit)
+}
+
+pub fn update(game: &mut Game) -> Result<(), Error>
+{
+	game.tick_update()
 }
 
 pub fn draw(game: &mut Game)
