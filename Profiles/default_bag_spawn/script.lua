@@ -1,5 +1,5 @@
-require "Themes.default.script"
-require "Themes.bag_spawn"
+require "Profiles.default.script"
+require "Profiles.bag_spawn"
 
 function spawn_piece(state)
 	return bag_spawn()

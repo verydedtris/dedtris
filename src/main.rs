@@ -4,8 +4,7 @@ extern crate rlua;
 extern crate sdl2;
 
 mod error;
-// mod file;
-mod game;
+mod runtime;
 mod lua;
 mod menu;
 

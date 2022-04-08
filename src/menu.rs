@@ -1,6 +1,6 @@
 use std::io::Write;
 
-mod theme;
+mod profile;
 
 pub struct MenuItem
 {
@@ -18,7 +18,7 @@ impl std::fmt::Display for MenuItem
 
 const MENU_ITEMS: [MenuItem; 1] = [MenuItem {
 	desc:   "Start a tetris game.",
-	action: theme::run_game,
+	action: profile::run_game,
 }];
 
 pub fn start_menu() -> bool

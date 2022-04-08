@@ -1,4 +1,4 @@
-require "Themes.default.script"
+require "Profiles.default.script"
 
 local bag = {}
 

@@ -1,8 +1,4 @@
-use std::num::TryFromIntError;
-
 use log::error;
-use rlua::prelude::LuaError;
-use sdl2::{video::WindowBuildError, IntegerOrSdlError};
 
 pub struct Error;
 
@@ -14,72 +10,9 @@ impl std::fmt::Debug for Error
 	}
 }
 
-impl From<&str> for Error
+impl<T: std::fmt::Display> From<T> for Error
 {
-	fn from(e: &str) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<String> for Error
-{
-	fn from(e: String) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<LuaError> for Error
-{
-	fn from(e: LuaError) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<TryFromIntError> for Error
-{
-	fn from(e: TryFromIntError) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<std::io::Error> for Error
-{
-	fn from(e: std::io::Error) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<WindowBuildError> for Error
-{
-	fn from(e: WindowBuildError) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<IntegerOrSdlError> for Error
-{
-	fn from(e: IntegerOrSdlError) -> Self
-	{
-		error!("{}", e);
-		Self {}
-	}
-}
-
-impl From<ini::Error> for Error
-{
-	fn from(e: ini::Error) -> Self
+	fn from(e: T) -> Self
 	{
 		error!("{}", e);
 		Self {}
@@ -89,19 +22,8 @@ impl From<ini::Error> for Error
 #[macro_export]
 macro_rules! err {
     ($x:expr, $msg:expr, $($param:expr),+) => {
-		match $x {
-			Ok(x) => x,
-			Err(_) => return Err(Error::from(format!("{}", format!($msg, $($param,)+)))),
-		}
+        $x.map_err(|_| { error!($msg, $($param,)+); return Error {} })
     };
-
-	($x:expr, $msg:expr) => {
-		if let Ok(x) = $x {
-			x
-		} else {
-			return Err(Error::from($msg));
-		}
-	};
 }
 
 #[macro_export]
