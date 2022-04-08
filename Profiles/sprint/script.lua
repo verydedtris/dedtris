@@ -1,4 +1,4 @@
-require "Themes.default_bag_spawn.script"
+require "Profiles.default_bag_spawn.script"
 
 local score = 40
 

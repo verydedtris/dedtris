@@ -39,7 +39,7 @@ pub fn run_game()
 
 pub fn load_profiles() -> Result<Vec<Profile>, Error>
 {
-	let p = Path::new("Themes");
+	let p = Path::new("Profiles");
 
 	let mut v = Vec::new();
 

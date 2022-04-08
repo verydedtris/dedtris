@@ -20,8 +20,7 @@ use crate::{error::Error, lua};
 mod drawer;
 mod game;
 mod state;
-mod theme;
-mod theme_api;
+mod profile_api;
 
 #[derive(Debug)]
 pub struct Piece
@@ -65,10 +64,10 @@ pub fn start_tetris_game(profile: &Path) -> Result<(), Error>
 
 	lua.context::<_, Result<(), Error>>(|ctx| {
 		let t = {
-			theme_api::load_defaults(&ctx)?;
+			profile_api::load_defaults(&ctx)?;
 			lua::exec_file(&ctx, profile)?;
 
-			theme::load(&ctx)?
+			profile_api::load(&ctx)?
 		};
 
 		info!("Constructing window.");

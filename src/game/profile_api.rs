@@ -1,18 +1,18 @@
-use std::{convert::TryFrom, time::Duration};
+use std::{convert::TryFrom, ffi::c_void, time::Duration};
 
 use log::info;
 use rlua::prelude::*;
 use sdl2::{pixels::Color, rect::Point};
 
-use super::Piece;
-use crate::{error::*, lua::*};
+use super::{Framework, Piece, TetrisState};
+use crate::{error::Error, lua::*};
 
 // -----------------------------------------------------------------------------
-// Parse Structures
+// Lua initialization
 // -----------------------------------------------------------------------------
 
 #[derive(Debug)]
-pub struct Theme
+pub struct Profile
 {
 	pub bg_color: Color,
 
@@ -33,24 +33,24 @@ pub struct Theme
 // Block Parsing
 // -----------------------------------------------------------------------------
 
-pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
+pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Profile, Error>
 {
-	info!("Evaluating theme.");
+	info!("Evaluating profile.");
 
 	let g = ctx.globals();
 
 	let init = find_function(&g, "init_game")?.call::<_, rlua::Table>(())?;
 
-	let width = u32::try_from(init.get::<_, LuaInteger>("width")?)?;
-	let height = u32::try_from(init.get::<_, LuaInteger>("height")?)?;
+	let width = u32::try_from(find_int(&init, "width")?)?;
+	let height = u32::try_from(find_int(&init, "height")?)?;
 
 	let piece_tick = if let Ok(t) = init.get::<_, LuaInteger>("piece_tick") {
 		Duration::from_millis(u64::try_from(t)?)
 	} else {
-		Duration::from_secs(3_155_760_000)
+		Duration::from_secs(3_155_760_000) // 100 Years
 	};
 
-	let start_piece = parse_pattern(init.get::<_, LuaTable>("start_piece")?)?;
+	let start_piece = parse_pattern(find_table(&init, "start_piece")?)?;
 
 	let piece_view_size = if let Ok(s) =
 		init.get::<_, LuaTable>("piece_view").and_then(|t| t.get::<_, LuaInteger>("size"))
@@ -65,7 +65,7 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Theme, Error>
 		.and_then(|t| t.get::<_, bool>("enabled"))
 		.unwrap_or(false);
 
-	Ok(Theme {
+	Ok(Profile {
 		bg_color: Color::WHITE,
 		field_bg_color: Color::BLACK,
 		field_edge_color: Color::GRAY,
@@ -141,4 +141,56 @@ fn parse_piece_color(data: LuaTable) -> Result<Color, Error>
 	}
 
 	Ok(Color::RGBA(rgba[0], rgba[1], rgba[2], rgba[3]))
+}
+
+// -----------------------------------------------------------------------------
+// Lua Functions
+// -----------------------------------------------------------------------------
+
+pub struct StateData<'a, 'b, 'c, 'd, 'f, 'g, 'h, 'i>
+{
+	pub game: &'a mut TetrisState,
+	pub fw:   &'b Framework<'c, 'd, 'f, 'g, 'h, 'i>,
+}
+
+pub fn call_lua<'a, T>(
+	name: &str, state: &mut TetrisState, fw: &Framework<'_, '_, '_, '_, '_, 'a>,
+) -> Result<T, Error>
+where
+	T: rlua::FromLuaMulti<'a>,
+{
+	info!("Querying \"{}\".", name);
+
+	let ctx = &fw.lua;
+	let g = ctx.globals();
+
+	let mut data = StateData { game: state, fw };
+
+	let ptr = &mut data as *mut _ as *mut c_void;
+	Ok(find_function(&g, name)?.call::<_, T>(rlua::LightUserData { 0: ptr })?)
+}
+
+pub fn load_defaults(ctx: &rlua::Context) -> Result<(), Error>
+{
+	let solve_field = ctx.create_function(|_, data: rlua::LightUserData| {
+		let StateData { game, .. }: &mut StateData = unsafe { &mut *(data.0 as *mut StateData) };
+
+		let v = game.clear_lines();
+
+		Ok(v)
+	})?;
+
+	let exit_game = ctx.create_function(|_, data: rlua::LightUserData| {
+		let StateData { game, .. }: &mut StateData = unsafe { &mut *(data.0 as *mut StateData) };
+
+		game.exit = true;
+
+		Ok(())
+	})?;
+
+	let g = ctx.globals();
+	g.set("_solveField", solve_field)?;
+	g.set("_finishGame", exit_game)?;
+
+	Ok(())
 }

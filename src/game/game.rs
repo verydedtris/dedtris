@@ -10,8 +10,9 @@ use super::{
 		flags::{self, Flag},
 		pieces, Direction,
 	},
-	theme::{self, Theme},
-	theme_api, Framework, Piece,
+	profile_api,
+	profile_api::Profile,
+	Framework, Piece,
 };
 use crate::error::Error;
 
@@ -23,13 +24,13 @@ pub struct Game<'a, 'b, 'd, 'e, 'f, 'g>
 }
 
 pub fn init_game<'a, 'b, 'c, 'd, 'e, 'f>(
-	fw: Framework<'a, 'b, 'c, 'd, 'e, 'f>, win_dim: (u32, u32), t: Theme,
+	fw: Framework<'a, 'b, 'c, 'd, 'e, 'f>, win_dim: (u32, u32), t: Profile,
 ) -> Result<Game<'a, 'b, 'c, 'd, 'e, 'f>, Error>
 {
 	let rend = drawer::init_renderer(
 		&fw.tex_maker,
 		win_dim,
-		Path::new("Themes/default/template.bmp"),
+		Path::new("Profiles/default/template.bmp"),
 	)?;
 
 	let state = state::init_game(
@@ -52,8 +53,8 @@ impl Game<'_, '_, '_, '_, '_, '_>
 		let state = &mut self.state;
 		let fw = &self.fw;
 
-		let t = theme_api::call_lua("spawn_piece", state, fw)?;
-		theme::parse_pattern(t)
+		let t = profile_api::call_lua("spawn_piece", state, fw)?;
+		profile_api::parse_pattern(t)
 	}
 
 	pub fn refresh_piece_view(&mut self, size: usize) -> Result<(), Error>
@@ -96,7 +97,7 @@ impl Game<'_, '_, '_, '_, '_, '_>
 			fc.extend(state.player_piece.colors.iter());
 		}
 
-		theme_api::call_lua::<()>("on_place", state, fw)?;
+		profile_api::call_lua::<()>("on_place", state, fw)?;
 
 		state.pieces_placed += 1;
 
@@ -158,10 +159,10 @@ impl Game<'_, '_, '_, '_, '_, '_>
 
 		if state.player_tick_time <= Instant::now() {
 			state.player_tick_time += state.player_tick_dur;
-            self.move_piece_down()?;
+			self.move_piece_down()?;
 		}
 
-        Ok(())
+		Ok(())
 	}
 
 	pub fn move_piece_down<'a>(&mut self) -> Result<bool, Error>
