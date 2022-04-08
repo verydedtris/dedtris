@@ -5,7 +5,7 @@ use std::{
 
 use ini::Ini;
 
-use crate::{error::Error, game};
+use crate::{error::Error, runtime};
 
 pub struct Profile
 {
@@ -34,7 +34,7 @@ pub fn run_game()
 		_ => return,
 	};
 
-	game::start_tetris_game(&profiles[i].lua);
+	runtime::start_tetris_game(&profiles[i].lua);
 }
 
 pub fn load_profiles() -> Result<Vec<Profile>, Error>

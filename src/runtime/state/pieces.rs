@@ -1,7 +1,7 @@
 use sdl2::rect::Point;
 
 use super::{field, Size};
-use crate::game::Piece;
+use crate::runtime::Piece;
 
 // -----------------------------------------------------------------------------
 // Movable Piece
