@@ -1,5 +1,9 @@
 require "Profiles.default_bag_spawn.script"
 
+function spawn_piece(state)
+	return bag_spawn()
+end
+
 local score = 40
 
 function on_place(state)

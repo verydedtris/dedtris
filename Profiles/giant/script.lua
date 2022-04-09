@@ -7,8 +7,8 @@ end
 
 function init_game()
 	return {
-		width = 10,
-		height = 20,
+		width = 20,
+		height = 40,
 
 		start_piece = bag_spawn(),
 
