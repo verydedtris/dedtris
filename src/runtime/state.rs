@@ -62,7 +62,8 @@ pub fn init_game(
 	let field_colors = Vec::new();
 	let field_size = field_dim;
 
-	let player = match pieces::spawn_piece(&field_blocks, field_dim, start_piece) {
+	let player = match pieces::spawn_piece(&field_blocks, field_dim, start_piece)
+	{
 		Some(v) => v,
 		None => return Err(Error::from("No area for piece.")),
 	};
@@ -124,7 +125,8 @@ impl TetrisState
 		let fs = self.field_size;
 		let pp = self.player_pos;
 
-		if !field::check_valid_pos(fs, fb, pp, &new_pblocks) {
+		if !field::check_valid_pos(fs, fb, pp, &new_pblocks)
+		{
 			return false;
 		}
 
@@ -142,7 +144,8 @@ impl TetrisState
 
 		info!("Moving to {:?}.", d);
 
-		let new_pl = match d {
+		let new_pl = match d
+		{
 			Direction::LEFT => Point::new(pl.x - 1, pl.y),
 			Direction::RIGHT => Point::new(pl.x + 1, pl.y),
 			Direction::DOWN => Point::new(pl.x, pl.y + 1),
@@ -152,7 +155,8 @@ impl TetrisState
 		let fs = self.field_size;
 		let p = &self.player_piece;
 
-		if !field::check_valid_pos(fs, fb, new_pl, &p.blocks) {
+		if !field::check_valid_pos(fs, fb, new_pl, &p.blocks)
+		{
 			return false;
 		}
 
@@ -182,9 +186,12 @@ impl TetrisState
 		let fbs = &self.field_blocks;
 		let fs = self.field_size;
 
-		let player = if let Some(p) = pieces::spawn_piece(fbs, fs, piece) {
+		let player = if let Some(p) = pieces::spawn_piece(fbs, fs, piece)
+		{
 			p
-		} else {
+		}
+		else
+		{
 			return false;
 		};
 
@@ -200,11 +207,14 @@ impl TetrisState
 		let pvb = &mut self.piece_queue;
 		let idx = self.piece_queue_idx;
 
-		if pvb.len() > 0 {
+		if pvb.len() > 0
+		{
 			let p = std::mem::replace(&mut pvb[idx], piece);
 			self.piece_queue_idx = (idx + 1) % pvb.len();
 			p
-		} else {
+		}
+		else
+		{
 			piece
 		}
 	}

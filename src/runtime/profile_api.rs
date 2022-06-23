@@ -44,9 +44,12 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Profile, Error>
 	let width = u32::try_from(find_int(&init, "width")?)?;
 	let height = u32::try_from(find_int(&init, "height")?)?;
 
-	let piece_tick = if let Ok(t) = init.get::<_, LuaInteger>("piece_tick") {
+	let piece_tick = if let Ok(t) = init.get::<_, LuaInteger>("piece_tick")
+	{
 		Duration::from_millis(u64::try_from(t)?)
-	} else {
+	}
+	else
+	{
 		Duration::from_secs(3_155_760_000) // 100 Years
 	};
 
@@ -56,7 +59,9 @@ pub fn load<'a, 'b>(ctx: &'b rlua::Context<'a>) -> Result<Profile, Error>
 		init.get::<_, LuaTable>("piece_view").and_then(|t| t.get::<_, LuaInteger>("size"))
 	{
 		usize::try_from(s)?
-	} else {
+	}
+	else
+	{
 		0
 	};
 
@@ -104,9 +109,12 @@ fn parse_piece_body(data: LuaString, pd: u32) -> Result<Vec<Point>, Error>
 	let mut field = Vec::with_capacity(ps as usize);
 	let mut blocks = 0;
 
-	for (i, c) in data.as_bytes().iter().enumerate() {
-		match c {
-			b'1' => {
+	for (i, c) in data.as_bytes().iter().enumerate()
+	{
+		match c
+		{
+			b'1' =>
+			{
 				field.push(Point::new(
 					(i % pd as usize) as i32,
 					(i / pd as usize) as i32,
@@ -114,14 +122,17 @@ fn parse_piece_body(data: LuaString, pd: u32) -> Result<Vec<Point>, Error>
 				blocks += 1;
 			},
 			b'0' => blocks += 1,
-			b'\n' | b' ' | b'\r' | b'\t' => {},
-			_ => {
+			b'\n' | b' ' | b'\r' | b'\t' =>
+			{},
+			_ =>
+			{
 				return Err(Error::from("Characters must be 0's or 1's."));
 			},
 		}
 	}
 
-	if ps != blocks {
+	if ps != blocks
+	{
 		return Err(Error::from(format!(
 			"A piece size doesn't match it's given size. is: {}, should be: {}.",
 			field.len(),
@@ -136,7 +147,8 @@ fn parse_piece_color(data: LuaTable) -> Result<Color, Error>
 {
 	let mut rgba = [0u8; 4];
 
-	for (c, y) in ["r", "g", "b", "a"].iter().zip(rgba.iter_mut()) {
+	for (c, y) in ["r", "g", "b", "a"].iter().zip(rgba.iter_mut())
+	{
 		*y = u8::try_from(find_int(&data, *c)?)?;
 	}
 

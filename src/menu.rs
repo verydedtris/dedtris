@@ -23,10 +23,13 @@ const MENU_ITEMS: [MenuItem; 1] = [MenuItem {
 
 pub fn start_menu() -> bool
 {
-	if let Some(i) = request_item(&MENU_ITEMS) {
+	if let Some(i) = request_item(&MENU_ITEMS)
+	{
 		(MENU_ITEMS[i].action)();
 		false
-	} else {
+	}
+	else
+	{
 		true
 	}
 }
@@ -35,8 +38,10 @@ pub fn request_item<T: std::fmt::Display>(items: &[T]) -> Option<usize>
 {
 	let mut input = String::new();
 
-	loop {
-		for (i, item) in items.iter().enumerate() {
+	loop
+	{
+		for (i, item) in items.iter().enumerate()
+		{
 			println!("{}) {}", i + 1, item);
 		}
 
@@ -47,15 +52,19 @@ pub fn request_item<T: std::fmt::Display>(items: &[T]) -> Option<usize>
 		std::io::stdout().flush().unwrap();
 		std::io::stdin().read_line(&mut input).unwrap();
 
-        println!("\n-----------------\n");
+		println!("\n-----------------\n");
 
-		if let Ok(val) = input.trim().parse::<usize>() {
-			match val {
+		if let Ok(val) = input.trim().parse::<usize>()
+		{
+			match val
+			{
 				v if v <= items.len() && v > 0 => break Some(v - 1),
 				v if v == items.len() + 1 => break None,
 				_ => println!("Unrecognized option."),
 			}
-		} else {
+		}
+		else
+		{
 			println!("Input isn't a number or is invalid.");
 		}
 

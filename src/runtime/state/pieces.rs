@@ -11,7 +11,8 @@ pub fn project(field_dim: Size, field_blocks: &[Point], pos: Point, blocks: &[Po
 {
 	let mut y = pos.y + 1;
 
-	while field::check_valid_pos(field_dim, field_blocks, Point::new(pos.x, y), blocks) {
+	while field::check_valid_pos(field_dim, field_blocks, Point::new(pos.x, y), blocks)
+	{
 		y += 1;
 	}
 
@@ -29,7 +30,8 @@ pub fn spawn_piece(field_blocks: &[Point], field_dim: Size, piece: Piece) -> Opt
 {
 	let pos = Point::new(((field_dim.0 - piece.dim) / 2) as i32, 0);
 
-	if !field::check_valid_pos(field_dim, field_blocks, pos, &piece.blocks) {
+	if !field::check_valid_pos(field_dim, field_blocks, pos, &piece.blocks)
+	{
 		return None;
 	}
 

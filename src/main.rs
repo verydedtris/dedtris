@@ -4,9 +4,9 @@ extern crate rlua;
 extern crate sdl2;
 
 mod error;
-mod runtime;
 mod lua;
 mod menu;
+mod runtime;
 
 fn main() -> Result<(), error::Error>
 {
@@ -15,7 +15,8 @@ fn main() -> Result<(), error::Error>
 
 	menu::print_banner();
 
-	while !menu::start_menu() {}
+	while !menu::start_menu()
+	{}
 
 	Ok(())
 }

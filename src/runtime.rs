@@ -19,8 +19,8 @@ use crate::{error::Error, lua};
 
 mod drawer;
 mod game;
-mod state;
 mod profile_api;
+mod state;
 
 #[derive(Debug)]
 pub struct Piece
@@ -116,20 +116,25 @@ pub fn start_tetris_game(profile: &Path) -> Result<(), Error>
 		let sdl = game.fw.sdl;
 		let mut event_pump = sdl.event_pump().unwrap();
 
-		'running: loop {
+		'running: loop
+		{
 			let canvas = &mut game.fw.canvas;
 			canvas.set_draw_color(Color::GRAY);
 			canvas.clear();
 
-			for event in event_pump.poll_iter() {
-				match event {
+			for event in event_pump.poll_iter()
+			{
+				match event
+				{
 					Event::Quit { .. }
 					| Event::KeyDown {
 						keycode: Some(Keycode::Escape),
 						..
 					} => break 'running,
-					_ => {
-						if !handle_event(&event, &mut game)? {
+					_ =>
+					{
+						if !handle_event(&event, &mut game)?
+						{
 							break 'running;
 						}
 					},
@@ -154,34 +159,42 @@ pub fn start_tetris_game(profile: &Path) -> Result<(), Error>
 
 pub fn handle_event<'a>(event: &Event, game: &mut Game) -> Result<bool, Error>
 {
-	match event {
+	match event
+	{
 		Event::KeyDown {
 			keycode: Some(x), ..
-		} => match x {
-			Keycode::Left => {
+		} => match x
+		{
+			Keycode::Left =>
+			{
 				let state = &mut game.state;
 				state.move_piece(Direction::LEFT);
 			},
 
-			Keycode::Right => {
+			Keycode::Right =>
+			{
 				let state = &mut game.state;
 				state.move_piece(Direction::RIGHT);
 			},
 
-			Keycode::Down => {
+			Keycode::Down =>
+			{
 				return Ok(game.move_piece_down()?);
 			},
 
-			Keycode::Up => {
+			Keycode::Up =>
+			{
 				let state = &mut game.state;
 				state.rotate();
 			},
 
-			Keycode::LShift => {
+			Keycode::LShift =>
+			{
 				game.swap()?;
 			},
 
-			Keycode::Space => {
+			Keycode::Space =>
+			{
 				return Ok(game.drop()?);
 			},
 
@@ -191,7 +204,8 @@ pub fn handle_event<'a>(event: &Event, game: &mut Game) -> Result<bool, Error>
 		Event::Window {
 			win_event: WindowEvent::Resized(w, h),
 			..
-		} => {
+		} =>
+		{
 			let drawer = &mut game.rend;
 			drawer.win_dim = (*w as u32, *h as u32);
 		},
@@ -238,7 +252,8 @@ pub fn draw(game: &mut Game)
 		let fbs = &state.field_blocks;
 		let fcs = &state.field_colors;
 
-		for (c, b) in fcs.iter().zip(fbs) {
+		for (c, b) in fcs.iter().zip(fbs)
+		{
 			let r = Rect::new(
 				field_rect.x + b.x * block_size as i32,
 				field_rect.y + b.y * block_size as i32,
@@ -291,14 +306,16 @@ pub fn draw(game: &mut Game)
 		let x = field_rect.x + field_rect.w + 10;
 		let mut y = field_rect.y;
 
-		for p in pvs[idx..].iter().chain(&pvs[..idx]) {
+		for p in pvs[idx..].iter().chain(&pvs[..idx])
+		{
 			rend.draw_blocks(canvas, Point::new(x, y), block_size, &p.blocks, &p.colors);
 			y += (p.dim * block_size + 10) as i32;
 		}
 	}
 
 	// Draw piece swap
-	if let Some(sp) = &state.piece_swap {
+	if let Some(sp) = &state.piece_swap
+	{
 		let size = block_size * sp.dim;
 		let pos = Point::new(field_rect.x - size as i32 - 10, field_rect.y);
 

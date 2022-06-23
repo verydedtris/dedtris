@@ -4,14 +4,13 @@ use log::*;
 use sdl2::rect::Point;
 
 use super::{
-	drawer,
+	drawer, profile_api,
+	profile_api::Profile,
 	state::{
 		self, field,
 		flags::{self, Flag},
 		pieces, Direction,
 	},
-	profile_api,
-	profile_api::Profile,
 	Framework, Piece,
 };
 use crate::error::Error;
@@ -61,7 +60,8 @@ impl Game<'_, '_, '_, '_, '_, '_>
 	{
 		let mut v = Vec::with_capacity(size);
 
-		while v.len() < size {
+		while v.len() < size
+		{
 			let p = self.request_piece()?;
 			v.push(p);
 		}
@@ -108,30 +108,38 @@ impl Game<'_, '_, '_, '_, '_, '_>
 	{
 		let state = &mut self.state;
 
-		if !flags::check(&state.flags, Flag::PieceHoldEnabled) {
+		if !flags::check(&state.flags, Flag::PieceHoldEnabled)
+		{
 			return Ok(());
 		}
 
 		let fd = state.field_size;
 		let pl = state.player_pos;
 
-		if let Some(piece) = &mut state.piece_swap {
-			if field::check_valid_pos(fd, &state.field_blocks, pl, &piece.blocks) {
+		if let Some(piece) = &mut state.piece_swap
+		{
+			if field::check_valid_pos(fd, &state.field_blocks, pl, &piece.blocks)
+			{
 				std::mem::swap(piece, &mut state.player_piece);
 
 				state.player_proj =
 					pieces::project(fd, &state.field_blocks, pl, &state.player_piece.blocks);
 			}
-		} else {
+		}
+		else
+		{
 			let p = self.request_piece()?;
 
 			let state = &mut self.state;
 			let p = state.push_piece(p);
 
 			state.piece_swap = Some(
-				if field::check_valid_pos(fd, &state.field_blocks, pl, &p.blocks) {
+				if field::check_valid_pos(fd, &state.field_blocks, pl, &p.blocks)
+				{
 					std::mem::replace(&mut state.player_piece, p)
-				} else {
+				}
+				else
+				{
 					p
 				},
 			);
@@ -157,7 +165,8 @@ impl Game<'_, '_, '_, '_, '_, '_>
 	{
 		let state = &mut self.state;
 
-		if state.player_tick_time <= Instant::now() {
+		if state.player_tick_time <= Instant::now()
+		{
 			state.player_tick_time += state.player_tick_dur;
 			self.move_piece_down()?;
 		}
@@ -169,7 +178,8 @@ impl Game<'_, '_, '_, '_, '_, '_>
 	{
 		let state = &mut self.state;
 
-		if state.move_piece(Direction::DOWN) {
+		if state.move_piece(Direction::DOWN)
+		{
 			return Ok(true);
 		}
 

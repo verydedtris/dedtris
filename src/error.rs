@@ -29,9 +29,11 @@ macro_rules! err {
 #[macro_export]
 macro_rules! end {
 	($x:expr, $msg:expr) => {
-		match $x {
+		match $x
+		{
 			Ok(x) => x,
-			Err(e) => {
+			Err(e) =>
+			{
 				error!("{}: {}", $msg, e);
 				return;
 			},
@@ -39,9 +41,11 @@ macro_rules! end {
 	};
 
 	($x:expr) => {
-		match $x {
+		match $x
+		{
 			Ok(x) => x,
-			Err(e) => {
+			Err(e) =>
+			{
 				error!("{}", e);
 				return;
 			},

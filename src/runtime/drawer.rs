@@ -49,7 +49,8 @@ impl Renderer<'_>
 	{
 		let btex = &mut self.block_texture;
 
-		for (c, b) in colors.iter().zip(blocks) {
+		for (c, b) in colors.iter().zip(blocks)
+		{
 			let r = Rect::new(
 				offset.x + b.x * bs as i32,
 				offset.y + b.y * bs as i32,
