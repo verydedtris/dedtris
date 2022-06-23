@@ -40,12 +40,14 @@ pub fn request_item<T: std::fmt::Display>(items: &[T]) -> Option<usize>
 			println!("{}) {}", i + 1, item);
 		}
 
-		println!("{}) exit.", items.len() + 1);
+		println!("{}) Exit.", items.len() + 1);
 
 		print!("> ");
 
 		std::io::stdout().flush().unwrap();
 		std::io::stdin().read_line(&mut input).unwrap();
+
+        println!("\n-----------------\n");
 
 		if let Ok(val) = input.trim().parse::<usize>() {
 			match val {
@@ -66,12 +68,7 @@ pub fn print_banner()
 {
 	println!(
 "
-███╗   ███╗ █████╗      ██╗████████╗██████╗ ██╗███████╗
-████╗ ████║██╔══██╗     ██║╚══██╔══╝██╔══██╗██║██╔════╝
-██╔████╔██║███████║     ██║   ██║   ██████╔╝██║███████╗
-██║╚██╔╝██║██╔══██║██   ██║   ██║   ██╔══██╗██║╚════██║
-██║ ╚═╝ ██║██║  ██║╚█████╔╝   ██║   ██║  ██║██║███████║
-╚═╝     ╚═╝╚═╝  ╚═╝ ╚════╝    ╚═╝   ╚═╝  ╚═╝╚═╝╚══════╝
+Majtris
 "
 	);
 }

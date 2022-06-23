@@ -18,18 +18,20 @@ impl std::fmt::Display for Profile
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
 	{
-		write!(f, "{}: \n{}", self.name, self.desc)
+		write!(f, "{}: \n{}\n", self.name, self.desc)
 	}
 }
 
 pub fn run_game()
 {
-	let profiles = match load_profiles() {
+	let profiles = match load_profiles()
+	{
 		Ok(ps) => ps,
 		_ => return,
 	};
 
-	let i = match super::request_item(&profiles) {
+	let i = match super::request_item(&profiles)
+	{
 		Some(i) => i,
 		_ => return,
 	};
@@ -43,11 +45,14 @@ pub fn load_profiles() -> Result<Vec<Profile>, Error>
 
 	let mut v = Vec::new();
 
-	for entry in std::fs::read_dir(p)? {
+	for entry in std::fs::read_dir(p)?
+	{
 		let entry = entry?;
 		let path = entry.path();
-		if path.is_dir() {
-			if let Some(profile) = load_profile(&path) {
+		if path.is_dir()
+		{
+			if let Some(profile) = load_profile(&path)
+			{
 				v.push(profile);
 			}
 		}
@@ -65,7 +70,8 @@ pub fn load_profile(p: &Path) -> Option<Profile>
 	let desc = load_property(&sec, "description")?;
 
 	let lua = p.join("script.lua");
-	if !lua.is_file() {
+	if !lua.is_file()
+	{
 		return None;
 	}
 
@@ -74,13 +80,19 @@ pub fn load_profile(p: &Path) -> Option<Profile>
 
 pub fn load_property<T: FromStr>(sec: &ini::Properties, key: &str) -> Option<T>
 {
-	if let Some(v) = sec.get(key) {
-		if let Ok(v) = v.parse::<T>() {
+	if let Some(v) = sec.get(key)
+	{
+		if let Ok(v) = v.parse::<T>()
+		{
 			Some(v)
-		} else {
+		}
+		else
+		{
 			None
 		}
-	} else {
+	}
+	else
+	{
 		None
 	}
 }
