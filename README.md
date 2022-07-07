@@ -12,7 +12,7 @@ The prebuilt binaries can be found [here](https://github.com/Majtris/majtris/rel
 ## Build
 The build process involves installing the [rust toolchain](https://www.rust-lang.org/tools/install) and installing the required [SDL2 libraries](https://www.libsdl.org/download-2.0.php) which the build depends on.
 
-1. `git clone https://github.com/Majtris/majtris.git`
+1. `git clone https://github.com/verydedtris/dedtris.git`
 ### Windows
 2. Download [SDL2](https://www.libsdl.org/download-2.0.php) and [SDL2_image](https://www.libsdl.org/projects/SDL_image/) development libraries.
 3. Extract all .dll and .lib files usually located under `.\lib\x64\` into the root of the project.
