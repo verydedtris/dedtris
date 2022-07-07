@@ -1,4 +1,4 @@
-# Majtris
+# dedtris
 A extendable tetris game written in Rust. Extensions are written in Lua.
 
 <p align="center">
