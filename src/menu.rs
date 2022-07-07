@@ -77,7 +77,7 @@ pub fn print_banner()
 {
 	println!(
 "
-Majtris
+dedtris
 "
 	);
 }
